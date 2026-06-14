@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grand — a concert piano in your browser</title>
+<style>
+/* ============================================================
+   GRAND — concert stage aesthetic
+   Deep house-lights black, warm spotlight amber, felt red accent
+   ============================================================ */
+:root{
+  --bg:#121013; --panel:#1b181c; --raised:#242027; --well:#0d0b0e;
+  --line:#332e36; --line-soft:#262229;
+  --text:#ece8e1; --dim:#a39d94; --faint:#6e6962;
+  --amber:#e8a64a; --amber-dn:#b97f2a; --felt:#a23b3f;
+  --green:#62c98a; --focus:#7db6ff;
+  --r:10px;
+  font-size:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:radial-gradient(1200px 600px at 50% -10%, #1d1820 0%, var(--bg) 60%);
+  color:var(--text);
+  font:0.9rem/1.5 "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  display:grid; grid-template-rows:auto 1fr auto; height:100vh; overflow:hidden; min-width:880px;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:6px}
+select,input[type=range]{font:inherit}
+select{
+  background:var(--well);color:var(--text);border:1px solid var(--line);
+  border-radius:8px;padding:.45rem .6rem;min-height:44px;
+}
+
+/* ---------- header ---------- */
+header{
+  display:flex;align-items:center;gap:1.1rem;
+  padding:.7rem 1.2rem;border-bottom:1px solid var(--line);
+  background:rgba(18,16,19,.7);
+}
+.brand{line-height:1.05;user-select:none}
+.brand b{font-size:1.15rem;letter-spacing:.22em;font-weight:700}
+.brand span{display:block;font-size:.6rem;letter-spacing:.3em;color:var(--dim);text-transform:uppercase;margin-top:2px}
+.status{display:flex;align-items:center;gap:.5rem;padding:.4rem .7rem;
+  background:var(--well);border:1px solid var(--line);border-radius:999px;font-size:.74rem;color:var(--dim)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:0 0 auto}
+.dot.ok{background:var(--green);box-shadow:0 0 8px rgba(98,201,138,.6)}
+.dot.warn{background:var(--amber)}
+.spacer{flex:1}
+.lat{font-size:.7rem;color:var(--faint);font-variant-numeric:tabular-nums}
+
+/* ---------- stage ---------- */
+main{overflow:auto;padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:1.3rem;align-items:center}
+.stagecard{width:min(1060px,100%)}
+
+/* start gate */
+#gate{
+  display:grid;place-items:center;gap:1rem;text-align:center;
+  padding:3.2rem 1rem;border:1px solid var(--line);border-radius:16px;
+  background:linear-gradient(180deg,#1d1920,#161318);
+}
+#gate h1{font-size:1.5rem;font-weight:600;letter-spacing:.04em}
+#gate p{color:var(--dim);max-width:46ch}
+#btnStart{
+  padding:.85rem 2.2rem;border-radius:999px;font-weight:600;letter-spacing:.06em;
+  background:linear-gradient(180deg,var(--amber),var(--amber-dn));color:#241603;
+  box-shadow:0 6px 24px rgba(232,166,74,.25);min-height:48px;
+}
+#btnStart:hover{filter:brightness(1.08)}
+#btnStart:disabled{filter:grayscale(.6);cursor:wait}
+.loadbar{width:min(420px,90%);height:6px;border-radius:3px;background:var(--well);overflow:hidden;border:1px solid var(--line)}
+.loadbar i{display:block;height:100%;width:0;background:var(--amber);transition:width .15s}
+#loadMsg{font-size:.74rem;color:var(--faint);min-height:1.2em}
+
+/* console */
+#console{display:none;flex-direction:column;gap:1.3rem;width:min(1060px,100%)}
+.section-label{font-size:.66rem;letter-spacing:.26em;text-transform:uppercase;color:var(--faint);margin-bottom:.6rem}
+
+.pianos{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem}
+.piano{
+  text-align:left;padding:1rem 1.1rem;border:1px solid var(--line);border-radius:14px;
+  background:linear-gradient(180deg,#1e1a21,#171419);transition:border-color .15s, transform .15s;
+  display:flex;flex-direction:column;gap:.3rem;min-height:96px;
+}
+.piano:hover{border-color:#4a434f}
+.piano[aria-pressed="true"]{
+  border-color:var(--amber);
+  box-shadow:0 0 0 1px var(--amber), 0 10px 30px rgba(232,166,74,.12);
+  transform:translateY(-2px);
+}
+.piano b{font-size:.98rem;letter-spacing:.02em}
+.piano small{color:var(--dim);font-size:.72rem;line-height:1.45}
+.piano .tag{align-self:flex-start;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--amber);border:1px solid rgba(232,166,74,.35);border-radius:999px;padding:.1rem .5rem;margin-bottom:.2rem}
+
+.controls{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:.8rem;align-items:end}
+.ctl{display:flex;flex-direction:column;gap:.45rem}
+.ctl label{font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;color:var(--faint)}
+.ctl .val{font-size:.68rem;color:var(--dim);font-variant-numeric:tabular-nums;margin-left:auto}
+.ctl .lrow{display:flex;align-items:baseline}
+input[type=range]{appearance:none;-webkit-appearance:none;height:28px;background:transparent}
+input[type=range]::-webkit-slider-runnable-track{height:5px;background:var(--line);border-radius:3px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-6.5px;
+  border-radius:50%;background:var(--amber);border:3px solid var(--bg);box-shadow:0 0 0 1px var(--line)}
+input[type=range]::-moz-range-track{height:5px;background:var(--line);border-radius:3px}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--amber);border:3px solid var(--bg)}
+
+.note{font-size:.72rem;color:var(--faint);line-height:1.6}
+.note b{color:var(--dim)}
+kbd{background:var(--raised);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;
+  padding:.05rem .35rem;font:600 .66rem ui-monospace,Consolas,monospace;color:var(--dim)}
+
+/* ---------- 88-key keyboard ---------- */
+footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1rem}
+.kbwrap{position:relative;height:118px;max-width:1500px;margin:0 auto;user-select:none}
+.kbfelt{position:absolute;left:0;right:0;top:-6px;height:6px;background:linear-gradient(180deg,#7e2d31,var(--felt));border-radius:2px 2px 0 0}
+.key{position:absolute;border:1px solid #0a090b;cursor:pointer}
+.key.w{top:0;bottom:0;background:linear-gradient(180deg,#efece4 0%,#dcd8cd 90%);border-radius:0 0 4px 4px;z-index:1}
+.key.b{top:0;height:62%;background:linear-gradient(180deg,#2a262c,#141215);border-radius:0 0 3px 3px;z-index:2}
+.key.w.on{background:linear-gradient(180deg,#ffd99a,var(--amber))}
+.key.b.on{background:linear-gradient(180deg,#caa05a,var(--amber-dn))}
+.key:active{filter:brightness(.92)}
+.kbhint{display:flex;justify-content:center;gap:1.4rem;margin-top:.55rem;font-size:.66rem;color:var(--faint)}
+@media (prefers-reduced-motion:reduce){ .piano{transition:none} }
+
+/* ---------- chord overlay ---------- */
+#chordOverlay{
+  position:fixed;
+  left:50%;bottom:138px;
+  transform:translateX(-50%) translateY(12px);
+  background:rgba(18,16,19,.92);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:.55rem 1.3rem .5rem;
+  backdrop-filter:blur(8px);
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .18s, transform .18s;
+  z-index:50;
+  text-align:center;
+  min-width:120px;
+  box-shadow:0 8px 32px rgba(0,0,0,.55);
+}
+#chordOverlay.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
+}
+#chordName{
+  font-size:1.55rem;
+  font-weight:700;
+  letter-spacing:.03em;
+  color:var(--amber);
+  line-height:1.1;
+}
+#chordName sup{
+  font-size:.7em;
+  vertical-align:super;
+}
+#chordQuality{
+  font-size:.62rem;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  color:var(--dim);
+  margin-top:.18rem;
+}
+
+#toast{
+  position:fixed;left:50%;top:74px;transform:translateX(-50%);
+  background:#2c272e;border:1px solid var(--line);color:var(--text);
+  padding:.5rem .95rem;border-radius:10px;font-size:.78rem;opacity:0;pointer-events:none;
+  transition:opacity .2s;z-index:99;box-shadow:0 8px 26px rgba(0,0,0,.55);
+}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><b>GRAND</b><span>concert piano</span></div>
+  <div class="status"><span class="dot" id="midiDot"></span><span id="midiStatus">MIDI: checking…</span></div>
+  <div class="status"><span class="dot" id="audioDot"></span><span id="audioStatus">Audio: not started</span></div>
+  <div class="spacer"></div>
+  <span class="lat" id="latency"></span>
+</header>
+
+<main>
+  <!-- start gate: browsers require a click before audio -->
+  <div class="stagecard" id="gate">
+    <h1>Take the bench.</h1>
+    <p>Plug in your MIDI keyboard, then start the piano. Samples load once (~14&nbsp;MB) and your browser caches them. Sustain pedal supported.</p>
+    <button id="btnStart">Start the piano</button>
+    <div class="loadbar" hidden id="loadbar"><i id="loadfill"></i></div>
+    <div id="loadMsg"></div>
+  </div>
+
+  <!-- console -->
+  <div id="console">
+    <div class="stagecard">
+      <div class="section-label">Instrument · voicings of the Salamander grand (Yamaha C5, CC-licensed)</div>
+      <div class="pianos">
+        <button class="piano" data-voicing="steinway" aria-pressed="false">
+          <span class="tag">New York</span><b>Steinway-style</b>
+          <small>Warm singing mid-range, rounded top end, generous pedal bloom. The accompanist's choice.</small>
+        </button>
+        <button class="piano" data-voicing="bosendorfer" aria-pressed="false">
+          <span class="tag">Vienna</span><b>Bösendorfer-style</b>
+          <small>Dark, rich bass and a softer attack. Chords sit down into the floor. Ballads live here.</small>
+        </button>
+        <button class="piano" data-voicing="yamaha" aria-pressed="true">
+          <span class="tag">Hamamatsu</span><b>Yamaha CFX-style</b>
+          <small>Bright, clear, and present — cuts through a mix and rewards a light touch.</small>
+        </button>
+      </div>
+    </div>
+
+    <div class="stagecard">
+      <div class="section-label">Space · synthesized impulse responses, ChromaVerb-inspired</div>
+      <div class="controls">
+        <div class="ctl">
+          <label for="selVerb">Reverb</label>
+          <select id="selVerb"></select>
+        </div>
+        <div class="ctl">
+          <div class="lrow"><label for="inMix">Mix</label><span class="val" id="mixVal">28%</span></div>
+          <input type="range" id="inMix" min="0" max="100" value="28">
+        </div>
+        <div class="ctl">
+          <div class="lrow"><label for="selCurve">Touch</label></div>
+          <select id="selCurve">
+            <option value="soft">Soft — easier fortissimo</option>
+            <option value="natural" selected>Natural</option>
+            <option value="hard">Hard — wider dynamics</option>
+          </select>
+        </div>
+        <div class="ctl">
+          <div class="lrow"><label for="inVol">Volume</label><span class="val" id="volVal">85%</span></div>
+          <input type="range" id="inVol" min="0" max="100" value="85">
+        </div>
+      </div>
+    </div>
+
+    <div class="stagecard note">
+      <b>Work-computer notes:</b> runs from this single file in Edge or Chrome — no install, no admin.
+      Needs internet on first load for samples; afterward they're cached. For a fully offline copy,
+      put the sample files in an <b>audio/</b> folder next to this file — it checks there first.
+      Typing keys work too: <kbd>A</kbd>–<kbd>K</kbd> with <kbd>W</kbd><kbd>E</kbd><kbd>T</kbd><kbd>Y</kbd><kbd>U</kbd> sharps, <kbd>Z</kbd>/<kbd>X</kbd> octave, <kbd>Shift</kbd> sustain.
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="kbwrap" id="kbwrap"><div class="kbfelt"></div></div>
+  <div class="kbhint">
+    <span id="lastNote">—</span>
+    <span id="pedalState">pedal up</span>
+    <span id="voiceCount">0 voices</span>
+  </div>
+</footer>
+
+<div id="toast" role="status"></div>
+<div id="chordOverlay" role="status" aria-live="polite">
+  <div id="chordName">—</div>
+  <div id="chordQuality"></div>
+</div>
+<script>
+"use strict";
+/* ============================================================
+   GRAND engine
+   Priority one: MIDI device recognition that never misses.
+   Strategy — no device picker, bind EVERY input on EVERY channel:
+     1. requestMIDIAccess at page load (before audio starts)
+     2. rebind on every statechange (hot plug / unplug)
+     3. idempotent 2s re-scan (catches dropped events after
+        sleep, hub re-enumeration, or driver hiccups)
+   Keys light from MIDI even before audio starts, so plugging in
+   gives instant visual proof the keyboard is seen.
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const mtof=m=>440*Math.pow(2,(m-69)/12);
+const NOTE_NAMES=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const noteName=m=>NOTE_NAMES[m%12]+(Math.floor(m/12)-1);
+
+/* ---------------- MIDI: layer 1–3 ---------------- */
+const MIDI={access:null, bound:new Set(), names:[]};
+function midiStatus(txt, cls){
+  $("#midiStatus").textContent="MIDI: "+txt;
+  $("#midiDot").className="dot"+(cls?" "+cls:"");
+}
+function bindInputs(){
+  if(!MIDI.access) return;
+  const names=[];
+  for(const input of MIDI.access.inputs.values()){
+    if(input.state!=="connected") continue;
+    input.onmidimessage=onMidiMessage;        // assignment is idempotent — safe to repeat
+    names.push(input.name||"MIDI device");
+  }
+  MIDI.names=names;
+  if(names.length){
+    midiStatus(names.join(" + "), "ok");
+    const g=$("#gateMidi"); if(g) g.textContent="✓ "+names.join(", ")+" detected — you're connected.";
+  } else {
+    midiStatus("no device — plug in anytime, it'll appear automatically", "warn");
+    const g=$("#gateMidi"); if(g) g.textContent="No MIDI keyboard detected yet — plug it in whenever; no refresh needed.";
+  }
+}
+async function initMIDI(){
+  if(!navigator.requestMIDIAccess){
+    midiStatus("not supported in this browser — use Edge or Chrome");
+    return;
+  }
+  try{
+    MIDI.access=await navigator.requestMIDIAccess({sysex:false});
+  }catch(e){
+    midiStatus("permission blocked — click the 🎹 icon in the address bar to allow");
+    return;
+  }
+  bindInputs();
+  MIDI.access.onstatechange=()=>{ bindInputs(); };   // layer 2: hot plug
+  setInterval(bindInputs, 2000);                      // layer 3: safety re-scan
+}
+function onMidiMessage(e){
+  const d=e.data; if(!d||d.length<1) return;
+  const cmd=d[0]&0xf0;
+  if(cmd===0x90 && d[2]>0)               noteOn(d[1], d[2], "midi");
+  else if(cmd===0x80 || (cmd===0x90 && d[2]===0)) noteOff(d[1]);
+  else if(cmd===0xB0){
+    if(d[1]===64) setSustain(d[2]>=64);
+    else if(d[1]===66) setSustain(d[2]>=64);          // sostenuto → treat as sustain
+    else if(d[1]===120||d[1]===123) panic();
+  }
+}
+
+/* ---------------- audio graph ---------------- */
+const A={ctx:null, ready:false, buffers:new Map(), sampleMidis:[],
+         bus:null, f1:null, f2:null, f3:null,
+         dry:null, wet:null, conv:null, master:null, comp:null};
+const VOICES=new Map();          // midi -> array of live voices
+let SUSTAIN=false, deferred=new Set(), voiceN=0;
+
+const VOICINGS={
+  yamaha:     {f1:["lowshelf",150,-1], f2:["peaking",4000,1,.9], f3:["highshelf",6000,2.5],
+               lpBase:1900, lpMax:18000, velExp:1.7, gain:1.0},
+  steinway:   {f1:["lowshelf",180,1.5], f2:["peaking",2500,-1.5,1], f3:["highshelf",7000,-2],
+               lpBase:1500, lpMax:15000, velExp:1.55, gain:1.05},
+  bosendorfer:{f1:["lowshelf",150,3],  f2:["peaking",3000,-2,1],  f3:["highshelf",7500,-3.5],
+               lpBase:1250, lpMax:13000, velExp:1.45, gain:1.1},
+};
+let voicing="yamaha";
+const CURVES={soft:.75, natural:1, hard:1.35};
+let curve="natural";
+
+function buildGraph(){
+  const ctx=A.ctx;
+  A.bus=ctx.createGain(); A.bus.gain.value=1;
+  A.f1=ctx.createBiquadFilter(); A.f2=ctx.createBiquadFilter(); A.f3=ctx.createBiquadFilter();
+  A.dry=ctx.createGain(); A.wet=ctx.createGain(); A.conv=ctx.createConvolver();
+  A.master=ctx.createGain(); A.master.gain.value=parseInt($("#inVol").value)/100;
+  A.comp=ctx.createDynamicsCompressor();
+  A.comp.threshold.value=-4; A.comp.knee.value=2; A.comp.ratio.value=16;
+  A.comp.attack.value=.002; A.comp.release.value=.15;
+  A.bus.connect(A.f1); A.f1.connect(A.f2); A.f2.connect(A.f3);
+  A.f3.connect(A.dry); A.f3.connect(A.conv); A.conv.connect(A.wet);
+  A.dry.connect(A.master); A.wet.connect(A.master);
+  A.master.connect(A.comp); A.comp.connect(ctx.destination);
+  applyVoicing(); applyVerb(); applyMix();
+}
+function applyVoicing(){
+  const v=VOICINGS[voicing], t=A.ctx.currentTime, set=(f,[type,fr,g,q])=>{
+    f.type=type; f.frequency.setTargetAtTime(fr,t,.03);
+    f.gain.setTargetAtTime(g,t,.03); if(q) f.Q.setTargetAtTime(q,t,.03);
+  };
+  set(A.f1,v.f1); set(A.f2,v.f2); set(A.f3,v.f3);
+}
+
+/* ---------------- reverb: synthesized IRs ---------------- */
+const VERBS=[
+  {id:"dry",   name:"Dry — no space"},
+  {id:"room",  name:"Studio Room",     sec:.55, exp:1.6, pre:.005, damp:7500, lc:90,  wid:.6},
+  {id:"chamb", name:"Medium Chamber",  sec:1.1, exp:1.5, pre:.010, damp:6500, lc:90,  wid:.75},
+  {id:"theat", name:"Theatre",         sec:1.5, exp:1.5, pre:.014, damp:5800, lc:80,  wid:.85},
+  {id:"hall",  name:"Concert Hall",    sec:2.3, exp:1.4, pre:.020, damp:5200, lc:70,  wid:1},
+  {id:"cath",  name:"Large Cathedral", sec:4.6, exp:1.3, pre:.032, damp:3800, lc:60,  wid:1},
+  {id:"plate", name:"Vintage Plate",   sec:1.9, exp:1.7, pre:0,    damp:9500, lc:140, wid:.9},
+  {id:"dark",  name:"Dark Hall",       sec:2.8, exp:1.4, pre:.022, damp:2600, lc:70,  wid:1},
+  {id:"synth", name:"Synth Hall",      sec:3.4, exp:1.2, pre:.026, damp:6800, lc:60,  wid:1},
+];
+let verbId="hall";
+function makeIR(p){
+  const sr=A.ctx.sampleRate, pre=Math.floor(p.pre*sr), n=pre+Math.floor(p.sec*sr);
+  const buf=A.ctx.createBuffer(2,n,sr);
+  for(let ch=0;ch<2;ch++){
+    const d=buf.getChannelData(ch);
+    let lp=0, hp=0;
+    for(let i=pre;i<n;i++){
+      const t=(i-pre)/(n-pre);
+      const env=Math.pow(1-t,p.exp)*Math.exp(-3*t);
+      // damping increases over time: cutoff slides down
+      const fc=p.damp*(1-.7*t);
+      const a=Math.exp(-2*Math.PI*fc/sr);
+      const x=(Math.random()*2-1)*env;
+      lp=a*lp+(1-a)*x;                          // progressive high-cut
+      const aHp=Math.exp(-2*Math.PI*p.lc/sr);
+      hp=aHp*hp+(1-aHp)*lp;
+      let s=lp-hp;                              // low-cut keeps the piano's own bass clean
+      // stereo width: blend a touch of shared mono for narrow spaces
+      d[i]=s*(ch?1:.96)*(.5+.5*p.wid) + s*(1-p.wid)*.2;
+    }
+  }
+  return buf;
+}
+function applyVerb(){
+  const p=VERBS.find(v=>v.id===verbId);
+  if(!p || p.id==="dry"){ A.wet.gain.value=0; return; }
+  A.conv.buffer=makeIR(p);
+  applyMix();
+}
+function applyMix(){
+  const m=parseInt($("#inMix").value)/100;
+  const isDry=verbId==="dry";
+  A.dry.gain.setTargetAtTime(1-(isDry?0:m*.55), A.ctx.currentTime, .03);
+  A.wet.gain.setTargetAtTime(isDry?0:m*1.15,    A.ctx.currentTime, .03);
+  $("#mixVal").textContent=$("#inMix").value+"%";
+}
+
+/* ---------------- samples ---------------- */
+const SAMPLE_CDN="https://tonejs.github.io/audio/salamander/";
+function sampleList(){
+  const list=[{midi:21,file:"A0.mp3"}];
+  for(let m=24;m<=108;m+=3){
+    const nm=NOTE_NAMES[m%12].replace("#","s")+(Math.floor(m/12)-1);
+    list.push({midi:m,file:nm+".mp3"});
+  }
+  return list;
+}
+async function fetchSample(file){
+  try{ const r=await fetch("audio/"+file); if(r.ok) return r.arrayBuffer(); }catch(e){}
+  const r=await fetch(SAMPLE_CDN+file);
+  if(!r.ok) throw new Error(file);
+  return r.arrayBuffer();
+}
+async function loadSamples(){
+  const list=sampleList(); let done=0;
+  $("#loadbar").hidden=false;
+  await Promise.all(list.map(async s=>{
+    const raw=await fetchSample(s.file);
+    A.buffers.set(s.midi, await A.ctx.decodeAudioData(raw));
+    done++;
+    $("#loadfill").style.width=(done/list.length*100)+"%";
+    $("#loadMsg").textContent="Loading samples… "+done+" / "+list.length;
+  }));
+  A.sampleMidis=[...A.buffers.keys()].sort((a,b)=>a-b);
+}
+function nearestSample(m){
+  let best=A.sampleMidis[0], bd=1e9;
+  for(const s of A.sampleMidis){ const d=Math.abs(s-m); if(d<bd){bd=d;best=s;} }
+  return best;
+}
+
+/* ---------------- voices ---------------- */
+function noteOn(midi, vel, src){
+  midi=clamp(midi,0,127);
+  keyLight(midi,true);
+  $("#lastNote").textContent=noteName(midi)+" · vel "+vel+(src==="midi"?" · MIDI":"");
+  if(!A.ready) return;                          // pre-start: visual only
+  if(midi<21||midi>108) return;
+  // re-strike: damp prior voices of this note quickly
+  (VOICES.get(midi)||[]).forEach(v=>v.release(.03));
+  const v=VOICINGS[voicing], t=A.ctx.currentTime;
+  const vn=Math.pow(clamp(vel,1,127)/127, 1);
+  const g=Math.pow(vn, v.velExp*CURVES[curve])*v.gain*.9+.02;
+  const sm=nearestSample(midi), buf=A.buffers.get(sm);
+  const srcN=A.ctx.createBufferSource(); srcN.buffer=buf;
+  srcN.playbackRate.value=Math.pow(2,(midi-sm)/12);
+  const lp=A.ctx.createBiquadFilter(); lp.type="lowpass"; lp.Q.value=.2;
+  lp.frequency.value=v.lpBase+(v.lpMax-v.lpBase)*Math.pow(vn,1.3);
+  const gn=A.ctx.createGain();
+  gn.gain.setValueAtTime(0,t); gn.gain.linearRampToValueAtTime(g,t+.002);
+  srcN.connect(lp); lp.connect(gn); gn.connect(A.bus);
+  srcN.start(t);
+  voiceN++;
+  const voice={midi, started:t, dead:false,
+    release(tau){
+      if(voice.dead) return; voice.dead=true; voiceN--;
+      const at=A.ctx.currentTime;
+      tau=tau ?? (.05+.06*(1-midi/108));        // bass dampers settle a touch slower
+      gn.gain.setTargetAtTime(0,at,tau);
+      srcN.stop(at+tau*8+.1);
+      const arr=VOICES.get(midi)||[];
+      VOICES.set(midi, arr.filter(x=>x!==voice));
+    }};
+  srcN.onended=()=>{ if(!voice.dead){voice.dead=true; voiceN--;} };
+  const arr=VOICES.get(midi)||[]; arr.push(voice); VOICES.set(midi,arr);
+  stealIfNeeded();
+  $("#voiceCount").textContent=voiceN+" voices";
+  updateChordOverlay();
+}
+function noteOff(midi){
+  keyLight(midi,false);
+  if(!A.ready) return;
+  if(SUSTAIN){ deferred.add(midi); return; }
+  (VOICES.get(midi)||[]).slice().forEach(v=>v.release());
+  $("#voiceCount").textContent=voiceN+" voices";
+  updateChordOverlay();
+}
+function setSustain(down){
+  SUSTAIN=down;
+  $("#pedalState").textContent=down?"pedal DOWN":"pedal up";
+  if(!down){ deferred.forEach(m=>{(VOICES.get(m)||[]).slice().forEach(v=>v.release());}); deferred.clear();
+    $("#voiceCount").textContent=voiceN+" voices";
+    updateChordOverlay();
+  }
+}
+function stealIfNeeded(){
+  if(voiceN<=72) return;
+  let oldest=null;
+  for(const arr of VOICES.values()) for(const v of arr)
+    if(!v.dead && (!oldest||v.started<oldest.started)) oldest=v;
+  if(oldest) oldest.release(.04);
+}
+function panic(){
+  for(const arr of VOICES.values()) arr.slice().forEach(v=>v.release(.02));
+  deferred.clear(); SUSTAIN=false;
+  $("#pedalState").textContent="pedal up";
+  document.querySelectorAll(".key.on").forEach(k=>k.classList.remove("on"));
+}
+
+/* ---------------- 88-key keyboard ---------------- */
+const keyEls=new Map();
+function buildKeyboard(){
+  const wrap=$("#kbwrap");
+  const whites=[]; for(let m=21;m<=108;m++) if(![1,3,6,8,10].includes(m%12)) whites.push(m);
+  const ww=100/whites.length;
+  whites.forEach((m,i)=>{
+    const k=document.createElement("button");
+    k.className="key w"; k.style.left=i*ww+"%"; k.style.width=ww+"%";
+    k.dataset.midi=m; k.setAttribute("aria-label",noteName(m));
+    wrap.appendChild(k); keyEls.set(m,k);
+  });
+  for(let m=21;m<=108;m++){
+    if(![1,3,6,8,10].includes(m%12)) continue;
+    const wi=whites.filter(w=>w<m).length;       // black key sits on boundary before this white index
+    const k=document.createElement("button");
+    k.className="key b"; k.style.left=(wi*ww-ww*.32)+"%"; k.style.width=ww*.64+"%";
+    k.dataset.midi=m; k.setAttribute("aria-label",noteName(m));
+    $("#kbwrap").appendChild(k); keyEls.set(m,k);
+  }
+  wrap.addEventListener("pointerdown",e=>{
+    const k=e.target.closest(".key"); if(!k) return;
+    e.preventDefault(); k.setPointerCapture(e.pointerId);
+    const rect=k.getBoundingClientRect();
+    const vel=Math.round(50+77*clamp((e.clientY-rect.top)/rect.height,0,1));
+    k._m=+k.dataset.midi; noteOn(k._m,vel,"mouse");
+  });
+  const up=e=>{ const k=e.target.closest(".key"); if(k&&k._m!=null){ noteOff(k._m); k._m=null; } };
+  wrap.addEventListener("pointerup",up); wrap.addEventListener("pointercancel",up);
+}
+function keyLight(midi,on){
+  const k=keyEls.get(midi); if(k) k.classList.toggle("on",on);
+}
+
+/* ---------------- typing keys ---------------- */
+const CODEMAP={KeyA:0,KeyW:1,KeyS:2,KeyE:3,KeyD:4,KeyF:5,KeyT:6,KeyG:7,KeyY:8,KeyH:9,KeyU:10,KeyJ:11,KeyK:12,KeyO:13,KeyL:14,KeyP:15,Semicolon:16};
+let octBase=60, heldCodes=new Set();
+window.addEventListener("keydown",e=>{
+  if(e.repeat) return;
+  const tag=e.target.tagName; if(tag==="INPUT"||tag==="SELECT"||tag==="TEXTAREA") return;
+  if(e.code==="ShiftLeft"||e.code==="ShiftRight"){ setSustain(true); return; }
+  if(e.code==="Escape"){ panic(); return; }
+  if(e.code==="KeyZ"){ octBase=Math.max(24,octBase-12); toast("Octave: "+noteName(octBase)); return; }
+  if(e.code==="KeyX"){ octBase=Math.min(96,octBase+12); toast("Octave: "+noteName(octBase)); return; }
+  if(CODEMAP[e.code]!==undefined && !heldCodes.has(e.code)){
+    heldCodes.add(e.code); noteOn(octBase+CODEMAP[e.code],92,"typing");
+  }
+});
+window.addEventListener("keyup",e=>{
+  if(e.code==="ShiftLeft"||e.code==="ShiftRight"){ setSustain(false); return; }
+  if(CODEMAP[e.code]!==undefined){ heldCodes.delete(e.code); noteOff(octBase+CODEMAP[e.code]); }
+});
+
+/* ---------------- UI wiring ---------------- */
+function toast(msg){
+  const t=$("#toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2200);
+}
+document.querySelectorAll(".piano").forEach(b=>{
+  b.addEventListener("click",()=>{
+    document.querySelectorAll(".piano").forEach(x=>x.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true");
+    voicing=b.dataset.voicing;
+    if(A.ready) applyVoicing();
+  });
+});
+(function(){
+  const sel=$("#selVerb");
+  VERBS.forEach(v=>{
+    const o=document.createElement("option"); o.value=v.id; o.textContent=v.name;
+    if(v.id===verbId) o.selected=true; sel.appendChild(o);
+  });
+  sel.onchange=()=>{ verbId=sel.value; if(A.ready) applyVerb(); };
+})();
+$("#inMix").oninput=()=>{ if(A.ready) applyMix(); else $("#mixVal").textContent=$("#inMix").value+"%"; };
+$("#selCurve").onchange=e=>curve=e.target.value;
+$("#inVol").oninput=e=>{
+  $("#volVal").textContent=e.target.value+"%";
+  if(A.master) A.master.gain.setTargetAtTime(parseInt(e.target.value)/100,A.ctx.currentTime,.02);
+};
+$("#btnStart").onclick=async ()=>{
+  const btn=$("#btnStart"); btn.disabled=true; btn.textContent="Loading…";
+  try{
+    A.ctx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:"interactive"});
+    await A.ctx.resume();
+    buildGraph();
+    await loadSamples();
+    A.ready=true;
+    $("#gate").style.display="none";
+    $("#console").style.display="flex";
+    $("#audioStatus").textContent="Audio: running · "+Math.round(A.ctx.sampleRate/1000)+" kHz";
+    $("#audioDot").classList.add("ok");
+    setInterval(()=>{
+      const ms=((A.ctx.baseLatency||0)+(A.ctx.outputLatency||0))*1000;
+      if(ms) $("#latency").textContent="output ≈ "+ms.toFixed(0)+" ms";
+    },1000);
+    toast("Ready — play.");
+  }catch(e){
+    btn.disabled=false; btn.textContent="Start the piano";
+    $("#loadMsg").textContent="Couldn't load samples. Check your connection (or place them in an audio/ folder beside this file) and try again.";
+  }
+};
+
+/* ---------------- chord recognition ---------------- */
+// Interval sets relative to root (semitones), most specific first
+const CHORD_TYPES = [
+  // 7th + extensions
+  { name:"maj9",    quality:"major ninth",            iv:[0,4,7,11,14] },
+  { name:"9",       quality:"dominant ninth",          iv:[0,4,7,10,14] },
+  { name:"m9",      quality:"minor ninth",             iv:[0,3,7,10,14] },
+  { name:"m(maj9)", quality:"minor/major ninth",       iv:[0,3,7,11,14] },
+  { name:"maj7♯11", quality:"lydian",                  iv:[0,4,7,11,18] },
+  { name:"13",      quality:"dominant thirteenth",     iv:[0,4,7,10,14,21] },
+  { name:"maj13",   quality:"major thirteenth",        iv:[0,4,7,11,14,21] },
+  // seventh chords
+  { name:"maj7",    quality:"major seventh",           iv:[0,4,7,11] },
+  { name:"7",       quality:"dominant seventh",        iv:[0,4,7,10] },
+  { name:"m7",      quality:"minor seventh",           iv:[0,3,7,10] },
+  { name:"m(maj7)", quality:"minor/major seventh",     iv:[0,3,7,11] },
+  { name:"m7♭5",    quality:"half-diminished seventh", iv:[0,3,6,10] },
+  { name:"°7",      quality:"diminished seventh",      iv:[0,3,6,9]  },
+  { name:"7sus4",   quality:"suspended dominant",      iv:[0,5,7,10] },
+  { name:"7sus2",   quality:"suspended dominant",      iv:[0,2,7,10] },
+  { name:"7♭9",     quality:"dominant flat nine",      iv:[0,4,7,10,13] },
+  { name:"7♯9",     quality:"dominant sharp nine",     iv:[0,4,7,10,15] },
+  { name:"7alt",    quality:"altered dominant",        iv:[0,4,10,13,15] },
+  // triads
+  { name:"",        quality:"major",                   iv:[0,4,7]  },
+  { name:"m",       quality:"minor",                   iv:[0,3,7]  },
+  { name:"°",       quality:"diminished",              iv:[0,3,6]  },
+  { name:"+",       quality:"augmented",               iv:[0,4,8]  },
+  { name:"sus4",    quality:"suspended fourth",        iv:[0,5,7]  },
+  { name:"sus2",    quality:"suspended second",        iv:[0,2,7]  },
+  { name:"5",       quality:"power chord",             iv:[0,7]    },
+];
+
+const NOTE_NAMES_SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const NOTE_NAMES_FLAT  = ["C","D♭","D","E♭","E","F","G♭","G","A♭","A","B♭","B"];
+// Roots that prefer flat spelling in jazz context
+const PREFER_FLAT = new Set([1,3,6,8,10]); // Db Eb Gb Ab Bb
+
+function rootName(pc){
+  return PREFER_FLAT.has(pc) ? NOTE_NAMES_FLAT[pc] : NOTE_NAMES_SHARP[pc];
+}
+
+function recogniseChord(midiNotes){
+  if(midiNotes.length < 2) return null;
+  // reduce to unique pitch classes
+  const pcs = [...new Set(midiNotes.map(m => m % 12))].sort((a,b)=>a-b);
+  if(pcs.length < 2) return null;
+
+  let best = null;
+
+  // try each pitch class as potential root
+  for(const root of pcs){
+    const intervals = pcs.map(pc => (pc - root + 12) % 12).sort((a,b)=>a-b);
+    // also check with octave extensions (9, 11, 13)
+    const withExt = [...new Set([
+      ...intervals,
+      ...intervals.map(i => i + 12),
+    ])].sort((a,b)=>a-b);
+
+    for(const type of CHORD_TYPES){
+      const needed = type.iv;
+      // every interval in the type must be present (allow extra notes)
+      const matched = needed.every(n => withExt.includes(n));
+      if(!matched) continue;
+      // score: more matched intervals = better (prefer specific over generic)
+      const score = needed.length;
+      if(!best || score > best.score){
+        best = { root, type, score };
+      }
+    }
+  }
+
+  if(!best) return null;
+  return {
+    symbol: rootName(best.root) + best.type.name,
+    quality: best.type.quality,
+    root: best.root,
+  };
+}
+
+// overlay wiring
+let _chordHideTimer = null;
+const _overlay = document.getElementById("chordOverlay");
+const _chordNameEl = document.getElementById("chordName");
+const _chordQualEl = document.getElementById("chordQuality");
+
+function updateChordOverlay(){
+  // collect all live MIDI notes from VOICES map
+  const active = [];
+  for(const [midi, arr] of VOICES){
+    if(arr.some(v => !v.dead)) active.push(midi);
+  }
+  // also include sustain-deferred notes
+  for(const m of deferred) if(!active.includes(m)) active.push(m);
+
+  if(active.length < 2){
+    // single note or silence — fade overlay after brief hold
+    clearTimeout(_chordHideTimer);
+    _chordHideTimer = setTimeout(()=> _overlay.classList.remove("show"), 600);
+    return;
+  }
+
+  const result = recogniseChord(active);
+  if(!result){
+    _chordNameEl.textContent = "—";
+    _chordQualEl.textContent = "";
+    _overlay.classList.add("show");
+    return;
+  }
+
+  // render with superscript for accidentals/numbers after root
+  const sym = result.symbol;
+  // split root (1-2 chars) from the rest
+  const rootLen = sym.match(/^.[#♭]?/)[0].length;
+  const rPart = sym.slice(0, rootLen);
+  const qPart = sym.slice(rootLen);
+  _chordNameEl.innerHTML = qPart
+    ? rPart + "<sup>" + qPart + "</sup>"
+    : rPart;
+  _chordQualEl.textContent = result.quality;
+
+  clearTimeout(_chordHideTimer);
+  _overlay.classList.add("show");
+}
+
+/* ---------------- boot ---------------- */
+(function(){
+  // add a live MIDI line inside the gate so detection is visible pre-start
+  const p=document.createElement("p"); p.id="gateMidi"; p.style.cssText="font-size:.78rem;color:var(--dim)";
+  p.textContent="Checking for MIDI devices…";
+  $("#gate").insertBefore(p, $("#btnStart"));
+})();
+buildKeyboard();
+initMIDI();
+
+</script>
+</body>
+</html>
