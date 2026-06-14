@@ -126,46 +126,36 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
 .kbhint{display:flex;justify-content:center;gap:1.4rem;margin-top:.55rem;font-size:.66rem;color:var(--faint)}
 @media (prefers-reduced-motion:reduce){ .piano{transition:none} }
 
-/* ---------- chord overlay ---------- */
-#chordOverlay{
-  position:fixed;
-  left:50%;bottom:138px;
-  transform:translateX(-50%) translateY(12px);
-  background:rgba(18,16,19,.92);
-  border:1px solid var(--line);
-  border-radius:14px;
-  padding:.55rem 1.3rem .5rem;
-  backdrop-filter:blur(8px);
-  pointer-events:none;
-  opacity:0;
-  transition:opacity .18s, transform .18s;
-  z-index:50;
-  text-align:center;
-  min-width:120px;
-  box-shadow:0 8px 32px rgba(0,0,0,.55);
+
+/* ---------- recorder ---------- */
+.recrow{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+#btnRec{
+  display:inline-flex;align-items:center;gap:.6rem;
+  background:var(--well);border:1px solid var(--line);
+  border-radius:999px;padding:.55rem 1.1rem;min-height:44px;
+  color:var(--text);font-size:.8rem;transition:border-color .15s,background .15s;
 }
-#chordOverlay.show{
-  opacity:1;
-  transform:translateX(-50%) translateY(0);
+#btnRec:hover{border-color:var(--felt)}
+#btnRec[disabled]{opacity:.4;cursor:not-allowed}
+#btnRec .rdot{width:11px;height:11px;border-radius:50%;background:var(--felt);flex:0 0 auto}
+#btnRec.armed{border-color:var(--felt);background:rgba(162,59,63,.14)}
+#btnRec.armed .rdot{animation:recpulse 1s ease-in-out infinite}
+@keyframes recpulse{0%,100%{opacity:1}50%{opacity:.25}}
+#recTime{font-variant-numeric:tabular-nums;font-size:.82rem;color:var(--dim);min-width:46px}
+#recStatus{font-size:.72rem;color:var(--faint)}
+#recPreview{
+  display:none;align-items:center;gap:.9rem;flex-wrap:wrap;
+  margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--line-soft);
 }
-#chordName{
-  font-size:1.55rem;
-  font-weight:700;
-  letter-spacing:.03em;
-  color:var(--amber);
-  line-height:1.1;
+#recPreview.show{display:flex}
+#recPreview audio{height:38px}
+#recDownload{
+  display:inline-flex;align-items:center;gap:.5rem;
+  background:var(--amber);color:#1a1206;border-radius:8px;
+  padding:.5rem .9rem;min-height:40px;font-size:.78rem;font-weight:600;text-decoration:none;
 }
-#chordName sup{
-  font-size:.7em;
-  vertical-align:super;
-}
-#chordQuality{
-  font-size:.62rem;
-  letter-spacing:.22em;
-  text-transform:uppercase;
-  color:var(--dim);
-  margin-top:.18rem;
-}
+#recDownload:hover{background:var(--amber-dn);color:var(--text)}
+@media (prefers-reduced-motion:reduce){ #btnRec.armed .rdot{animation:none} }
 
 #toast{
   position:fixed;left:50%;top:74px;transform:translateX(-50%);
@@ -242,6 +232,21 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
       </div>
     </div>
 
+    <div class="stagecard">
+      <div class="section-label">Record · captures the current voicing &amp; space, exports MP3</div>
+      <div class="recrow">
+        <button id="btnRec" disabled aria-pressed="false">
+          <span class="rdot"></span><span id="recLabel">Record</span>
+        </button>
+        <span id="recTime">0:00</span>
+        <span id="recStatus">Start the piano to enable recording.</span>
+      </div>
+      <div id="recPreview">
+        <audio id="recAudio" controls></audio>
+        <a id="recDownload" download>Download MP3</a>
+      </div>
+    </div>
+
     <div class="stagecard note">
       <b>Work-computer notes:</b> runs from this single file in Edge or Chrome — no install, no admin.
       Needs internet on first load for samples; afterward they're cached. For a fully offline copy,
@@ -261,10 +266,6 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
 </footer>
 
 <div id="toast" role="status"></div>
-<div id="chordOverlay" role="status" aria-live="polite">
-  <div id="chordName">—</div>
-  <div id="chordQuality"></div>
-</div>
 <script>
 "use strict";
 /* ============================================================
@@ -496,7 +497,6 @@ function noteOn(midi, vel, src){
   const arr=VOICES.get(midi)||[]; arr.push(voice); VOICES.set(midi,arr);
   stealIfNeeded();
   $("#voiceCount").textContent=voiceN+" voices";
-  updateChordOverlay();
 }
 function noteOff(midi){
   keyLight(midi,false);
@@ -504,14 +504,12 @@ function noteOff(midi){
   if(SUSTAIN){ deferred.add(midi); return; }
   (VOICES.get(midi)||[]).slice().forEach(v=>v.release());
   $("#voiceCount").textContent=voiceN+" voices";
-  updateChordOverlay();
 }
 function setSustain(down){
   SUSTAIN=down;
   $("#pedalState").textContent=down?"pedal DOWN":"pedal up";
   if(!down){ deferred.forEach(m=>{(VOICES.get(m)||[]).slice().forEach(v=>v.release());}); deferred.clear();
     $("#voiceCount").textContent=voiceN+" voices";
-    updateChordOverlay();
   }
 }
 function stealIfNeeded(){
@@ -616,6 +614,9 @@ $("#btnStart").onclick=async ()=>{
     buildGraph();
     await loadSamples();
     A.ready=true;
+    buildRecorderTap();
+    $("#btnRec").disabled=false;
+    $("#recStatus").textContent="Ready to record.";
     $("#gate").style.display="none";
     $("#console").style.display="flex";
     $("#audioStatus").textContent="Audio: running · "+Math.round(A.ctx.sampleRate/1000)+" kHz";
@@ -631,130 +632,108 @@ $("#btnStart").onclick=async ()=>{
   }
 };
 
-/* ---------------- chord recognition ---------------- */
-// Interval sets relative to root (semitones), most specific first
-const CHORD_TYPES = [
-  // 7th + extensions
-  { name:"maj9",    quality:"major ninth",            iv:[0,4,7,11,14] },
-  { name:"9",       quality:"dominant ninth",          iv:[0,4,7,10,14] },
-  { name:"m9",      quality:"minor ninth",             iv:[0,3,7,10,14] },
-  { name:"m(maj9)", quality:"minor/major ninth",       iv:[0,3,7,11,14] },
-  { name:"maj7♯11", quality:"lydian",                  iv:[0,4,7,11,18] },
-  { name:"13",      quality:"dominant thirteenth",     iv:[0,4,7,10,14,21] },
-  { name:"maj13",   quality:"major thirteenth",        iv:[0,4,7,11,14,21] },
-  // seventh chords
-  { name:"maj7",    quality:"major seventh",           iv:[0,4,7,11] },
-  { name:"7",       quality:"dominant seventh",        iv:[0,4,7,10] },
-  { name:"m7",      quality:"minor seventh",           iv:[0,3,7,10] },
-  { name:"m(maj7)", quality:"minor/major seventh",     iv:[0,3,7,11] },
-  { name:"m7♭5",    quality:"half-diminished seventh", iv:[0,3,6,10] },
-  { name:"°7",      quality:"diminished seventh",      iv:[0,3,6,9]  },
-  { name:"7sus4",   quality:"suspended dominant",      iv:[0,5,7,10] },
-  { name:"7sus2",   quality:"suspended dominant",      iv:[0,2,7,10] },
-  { name:"7♭9",     quality:"dominant flat nine",      iv:[0,4,7,10,13] },
-  { name:"7♯9",     quality:"dominant sharp nine",     iv:[0,4,7,10,15] },
-  { name:"7alt",    quality:"altered dominant",        iv:[0,4,10,13,15] },
-  // triads
-  { name:"",        quality:"major",                   iv:[0,4,7]  },
-  { name:"m",       quality:"minor",                   iv:[0,3,7]  },
-  { name:"°",       quality:"diminished",              iv:[0,3,6]  },
-  { name:"+",       quality:"augmented",               iv:[0,4,8]  },
-  { name:"sus4",    quality:"suspended fourth",        iv:[0,5,7]  },
-  { name:"sus2",    quality:"suspended second",        iv:[0,2,7]  },
-  { name:"5",       quality:"power chord",             iv:[0,7]    },
-];
+/* ---------------- recorder ---------------- */
+const REC={
+  active:false, node:null, tap:null,
+  L:[], R:[], len:0, sr:44100,
+  t0:0, timer:null, lameReady:false,
+};
 
-const NOTE_NAMES_SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-const NOTE_NAMES_FLAT  = ["C","D♭","D","E♭","E","F","G♭","G","A♭","A","B♭","B"];
-// Roots that prefer flat spelling in jazz context
-const PREFER_FLAT = new Set([1,3,6,8,10]); // Db Eb Gb Ab Bb
-
-function rootName(pc){
-  return PREFER_FLAT.has(pc) ? NOTE_NAMES_FLAT[pc] : NOTE_NAMES_SHARP[pc];
+// lazy-load lamejs from CDN the first time it's needed
+function loadLame(){
+  if(window.lamejs) return Promise.resolve();
+  if(REC._lameP) return REC._lameP;
+  REC._lameP=new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js";
+    s.onload=()=>res(); s.onerror=()=>rej(new Error("lame load failed"));
+    document.head.appendChild(s);
+  });
+  return REC._lameP;
 }
 
-function recogniseChord(midiNotes){
-  if(midiNotes.length < 2) return null;
-  // reduce to unique pitch classes
-  const pcs = [...new Set(midiNotes.map(m => m % 12))].sort((a,b)=>a-b);
-  if(pcs.length < 2) return null;
-
-  let best = null;
-
-  // try each pitch class as potential root
-  for(const root of pcs){
-    const intervals = pcs.map(pc => (pc - root + 12) % 12).sort((a,b)=>a-b);
-    // also check with octave extensions (9, 11, 13)
-    const withExt = [...new Set([
-      ...intervals,
-      ...intervals.map(i => i + 12),
-    ])].sort((a,b)=>a-b);
-
-    for(const type of CHORD_TYPES){
-      const needed = type.iv;
-      // every interval in the type must be present (allow extra notes)
-      const matched = needed.every(n => withExt.includes(n));
-      if(!matched) continue;
-      // score: more matched intervals = better (prefer specific over generic)
-      const score = needed.length;
-      if(!best || score > best.score){
-        best = { root, type, score };
-      }
-    }
-  }
-
-  if(!best) return null;
-  return {
-    symbol: rootName(best.root) + best.type.name,
-    quality: best.type.quality,
-    root: best.root,
+function buildRecorderTap(){
+  // ScriptProcessor pulls PCM off the finished signal (post comp = what you hear)
+  const ctx=A.ctx;
+  REC.sr=ctx.sampleRate;
+  const sp=ctx.createScriptProcessor(4096,2,2);
+  sp.onaudioprocess=e=>{
+    if(!REC.active) return;
+    const l=e.inputBuffer.getChannelData(0);
+    const r=e.inputBuffer.getChannelData(1);
+    REC.L.push(new Float32Array(l));
+    REC.R.push(new Float32Array(r));
+    REC.len+=l.length;
   };
+  // tap the final node; sink the processor to destination with zero gain so it runs
+  const sink=ctx.createGain(); sink.gain.value=0;
+  A.comp.connect(sp); sp.connect(sink); sink.connect(ctx.destination);
+  REC.tap=sp;
 }
 
-// overlay wiring
-let _chordHideTimer = null;
-const _overlay = document.getElementById("chordOverlay");
-const _chordNameEl = document.getElementById("chordName");
-const _chordQualEl = document.getElementById("chordQuality");
+function fmtTime(s){ const m=Math.floor(s/60), ss=Math.floor(s%60); return m+":"+String(ss).padStart(2,"0"); }
 
-function updateChordOverlay(){
-  // collect all live MIDI notes from VOICES map
-  const active = [];
-  for(const [midi, arr] of VOICES){
-    if(arr.some(v => !v.dead)) active.push(midi);
-  }
-  // also include sustain-deferred notes
-  for(const m of deferred) if(!active.includes(m)) active.push(m);
-
-  if(active.length < 2){
-    // single note or silence — fade overlay after brief hold
-    clearTimeout(_chordHideTimer);
-    _chordHideTimer = setTimeout(()=> _overlay.classList.remove("show"), 600);
-    return;
-  }
-
-  const result = recogniseChord(active);
-  if(!result){
-    _chordNameEl.textContent = "—";
-    _chordQualEl.textContent = "";
-    _overlay.classList.add("show");
-    return;
-  }
-
-  // render with superscript for accidentals/numbers after root
-  const sym = result.symbol;
-  // split root (1-2 chars) from the rest
-  const rootLen = sym.match(/^.[#♭]?/)[0].length;
-  const rPart = sym.slice(0, rootLen);
-  const qPart = sym.slice(rootLen);
-  _chordNameEl.innerHTML = qPart
-    ? rPart + "<sup>" + qPart + "</sup>"
-    : rPart;
-  _chordQualEl.textContent = result.quality;
-
-  clearTimeout(_chordHideTimer);
-  _overlay.classList.add("show");
+function startRec(){
+  REC.active=true; REC.L=[]; REC.R=[]; REC.len=0; REC.t0=performance.now();
+  const btn=$("#btnRec");
+  btn.classList.add("armed"); btn.setAttribute("aria-pressed","true");
+  $("#recLabel").textContent="Stop";
+  $("#recStatus").textContent="Recording…";
+  $("#recPreview").classList.remove("show");
+  REC.timer=setInterval(()=>{
+    const sec=(performance.now()-REC.t0)/1000;
+    $("#recTime").textContent=fmtTime(sec);
+    if(sec>=600){ stopRec(); toast("Reached 10-minute limit."); }
+  },200);
 }
+
+async function stopRec(){
+  if(!REC.active) return;
+  REC.active=false;
+  clearInterval(REC.timer);
+  const btn=$("#btnRec");
+  btn.classList.remove("armed"); btn.setAttribute("aria-pressed","false");
+  $("#recLabel").textContent="Record"; btn.disabled=true;
+  $("#recStatus").textContent="Encoding MP3…";
+
+  try{
+    await loadLame();
+    const blob=encodeMP3();
+    const url=URL.createObjectURL(blob);
+    const audio=$("#recAudio"); audio.src=url;
+    const dl=$("#recDownload");
+    const stamp=new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+    dl.href=url; dl.download="grand-"+stamp+".mp3";
+    $("#recPreview").classList.add("show");
+    const kb=Math.round(blob.size/1024);
+    $("#recStatus").textContent="Ready — "+fmtTime(REC.len/REC.sr)+" · "+kb+" KB";
+  }catch(e){
+    $("#recStatus").textContent="MP3 encoder couldn't load (check connection). Recording kept in memory — try Stop again.";
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+function encodeMP3(){
+  // flatten + downmix-aware: keep stereo, encode at 192kbps
+  const flat=(chunks,total)=>{ const out=new Float32Array(total); let o=0;
+    for(const c of chunks){ out.set(c,o); o+=c.length; } return out; };
+  const L=flat(REC.L,REC.len), R=flat(REC.R,REC.len);
+  const to16=f=>{ const i=new Int16Array(f.length);
+    for(let n=0;n<f.length;n++){ let s=Math.max(-1,Math.min(1,f[n])); i[n]=s<0?s*0x8000:s*0x7FFF; } return i; };
+  const li=to16(L), ri=to16(R);
+  const enc=new lamejs.Mp3Encoder(2, REC.sr, 192);
+  const block=1152, data=[];
+  for(let i=0;i<li.length;i+=block){
+    const lc=li.subarray(i,i+block), rc=ri.subarray(i,i+block);
+    const buf=enc.encodeBuffer(lc,rc);
+    if(buf.length) data.push(buf);
+  }
+  const end=enc.flush(); if(end.length) data.push(end);
+  return new Blob(data,{type:"audio/mp3"});
+}
+
+$("#btnRec").onclick=()=>{ REC.active?stopRec():startRec(); };
 
 /* ---------------- boot ---------------- */
 (function(){
