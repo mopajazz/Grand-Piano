@@ -49,8 +49,6 @@ header{
 .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:0 0 auto}
 .dot.ok{background:var(--green);box-shadow:0 0 8px rgba(98,201,138,.6)}
 .dot.warn{background:var(--amber)}
-.spacer{flex:1}
-.lat{font-size:.7rem;color:var(--faint);font-variant-numeric:tabular-nums}
 
 /* ---------- stage ---------- */
 main{overflow:auto;padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:1.3rem;align-items:center}
@@ -83,7 +81,7 @@ main{overflow:auto;padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:
 .piano{
   text-align:left;padding:1rem 1.1rem;border:1px solid var(--line);border-radius:14px;
   background:linear-gradient(180deg,#1e1a21,#171419);transition:border-color .15s, transform .15s;
-  display:flex;flex-direction:column;gap:.3rem;min-height:96px;
+  display:flex;flex-direction:column;gap:.3rem;
 }
 .piano:hover{border-color:#4a434f}
 .piano[aria-pressed="true"]{
@@ -92,7 +90,6 @@ main{overflow:auto;padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:
   transform:translateY(-2px);
 }
 .piano b{font-size:.98rem;letter-spacing:.02em}
-.piano small{color:var(--dim);font-size:.72rem;line-height:1.45}
 .piano .tag{align-self:flex-start;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;
   color:var(--amber);border:1px solid rgba(232,166,74,.35);border-radius:999px;padding:.1rem .5rem;margin-bottom:.2rem}
 
@@ -123,7 +120,26 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
 .key.w.on{background:linear-gradient(180deg,#ffd99a,var(--amber))}
 .key.b.on{background:linear-gradient(180deg,#caa05a,var(--amber-dn))}
 .key:active{filter:brightness(.92)}
-.kbhint{display:flex;justify-content:center;gap:1.4rem;margin-top:.55rem;font-size:.66rem;color:var(--faint)}
+.kbhint{display:flex;justify-content:center;align-items:center;gap:1.4rem;margin-top:.55rem;font-size:.66rem;color:var(--faint)}
+.kbtop{display:flex;justify-content:center;margin-bottom:.85rem}
+.oct{display:flex;align-items:center;gap:.5rem;padding:.3rem;
+  background:var(--well);border:1px solid var(--line);border-radius:999px}
+.oct button{width:40px;height:34px;border:1px solid var(--line);border-radius:999px;background:var(--raised);
+  color:var(--text);font-size:1.15rem;line-height:1}
+.oct button:hover:not(:disabled){border-color:var(--amber);color:var(--text)}
+.oct button:disabled{opacity:.35;cursor:not-allowed}
+.oct output{min-width:96px;text-align:center;font-variant-numeric:tabular-nums;color:var(--dim);
+  font-size:.78rem;letter-spacing:.12em;text-transform:uppercase}
+.oct output.shifted{color:var(--amber)}
+.kbtop{gap:.8rem;align-items:center}
+.kbsize{display:flex;align-items:center;gap:.45rem;font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;color:var(--faint)}
+.kbsize select{min-height:34px;padding:.3rem .5rem;border-radius:999px;font-size:.78rem;letter-spacing:0;text-transform:none}
+.kbrange{position:absolute;top:-6px;height:6px;background:var(--amber);border-radius:2px 2px 0 0;z-index:3;
+  transition:left .15s,width .15s;pointer-events:none}
+.kbrange[hidden]{display:none}
+.key.w.out{background:linear-gradient(180deg,#a8a49c 0%,#96928a 90%)}
+.key.b.out{background:linear-gradient(180deg,#1d1a1f,#0e0d0f)}
+@media (prefers-reduced-motion:reduce){ .kbrange{transition:none} }
 @media (prefers-reduced-motion:reduce){ .piano{transition:none} }
 
 
@@ -172,15 +188,13 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
   <div class="brand"><b>GRAND</b><span>concert piano</span></div>
   <div class="status"><span class="dot" id="midiDot"></span><span id="midiStatus">MIDI: checking…</span></div>
   <div class="status"><span class="dot" id="audioDot"></span><span id="audioStatus">Audio: not started</span></div>
-  <div class="spacer"></div>
-  <span class="lat" id="latency"></span>
 </header>
 
 <main>
   <!-- start gate: browsers require a click before audio -->
   <div class="stagecard" id="gate">
     <h1>Take the bench.</h1>
-    <p>Plug in your MIDI keyboard, then start the piano. Samples load once (~14&nbsp;MB) and your browser caches them. Sustain pedal supported.</p>
+    <p>Plug in your MIDI keyboard and press Start. The first load takes about 15 seconds.</p>
     <button id="btnStart">Start the piano</button>
     <div class="loadbar" hidden id="loadbar"><i id="loadfill"></i></div>
     <div id="loadMsg"></div>
@@ -189,25 +203,22 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
   <!-- console -->
   <div id="console">
     <div class="stagecard">
-      <div class="section-label">Instrument · voicings of the Salamander grand (Yamaha C5, CC-licensed)</div>
+      <div class="section-label">Instrument</div>
       <div class="pianos">
         <button class="piano" data-voicing="steinway" aria-pressed="false">
           <span class="tag">New York</span><b>Steinway-style</b>
-          <small>Warm singing mid-range, rounded top end, generous pedal bloom. The accompanist's choice.</small>
         </button>
         <button class="piano" data-voicing="bosendorfer" aria-pressed="false">
           <span class="tag">Vienna</span><b>Bösendorfer-style</b>
-          <small>Dark, rich bass and a softer attack. Chords sit down into the floor. Ballads live here.</small>
         </button>
         <button class="piano" data-voicing="yamaha" aria-pressed="true">
           <span class="tag">Hamamatsu</span><b>Yamaha CFX-style</b>
-          <small>Bright, clear, and present — cuts through a mix and rewards a light touch.</small>
         </button>
       </div>
     </div>
 
     <div class="stagecard">
-      <div class="section-label">Space · synthesized impulse responses, ChromaVerb-inspired</div>
+      <div class="section-label">Space</div>
       <div class="controls">
         <div class="ctl">
           <label for="selVerb">Reverb</label>
@@ -233,13 +244,13 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
     </div>
 
     <div class="stagecard">
-      <div class="section-label">Record · captures the current voicing &amp; space, exports MP3</div>
+      <div class="section-label">Record</div>
       <div class="recrow">
         <button id="btnRec" disabled aria-pressed="false">
           <span class="rdot"></span><span id="recLabel">Record</span>
         </button>
         <span id="recTime">0:00</span>
-        <span id="recStatus">Start the piano to enable recording.</span>
+        <span id="recStatus"></span>
       </div>
       <div id="recPreview">
         <audio id="recAudio" controls></audio>
@@ -248,20 +259,31 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
     </div>
 
     <div class="stagecard note">
-      <b>Work-computer notes:</b> runs from this single file in Edge or Chrome — no install, no admin.
-      Needs internet on first load for samples; afterward they're cached. For a fully offline copy,
-      put the sample files in an <b>audio/</b> folder next to this file — it checks there first.
-      Typing keys work too: <kbd>A</kbd>–<kbd>K</kbd> with <kbd>W</kbd><kbd>E</kbd><kbd>T</kbd><kbd>Y</kbd><kbd>U</kbd> sharps, <kbd>Z</kbd>/<kbd>X</kbd> octave, <kbd>Shift</kbd> sustain.
+      No MIDI keyboard? Click the keys, or type: <kbd>A</kbd>–<kbd>K</kbd> white keys, <kbd>W</kbd><kbd>E</kbd><kbd>T</kbd><kbd>Y</kbd><kbd>U</kbd> black keys,
+      <kbd>Z</kbd>/<kbd>X</kbd> octave, <kbd>Shift</kbd> sustain, <kbd>Esc</kbd> stop all notes.
+      <br>Samples: Salamander Grand Piano by Alexander Holm, CC&nbsp;BY&nbsp;3.0.
     </div>
   </div>
 </main>
 
 <footer>
-  <div class="kbwrap" id="kbwrap"><div class="kbfelt"></div></div>
+  <div class="kbtop">
+    <div class="oct" role="group" aria-label="Octave shift for MIDI and typing keys">
+      <button id="octDown" aria-label="Octave down">−</button>
+      <output id="octVal" aria-live="polite">Octave 0</output>
+      <button id="octUp" aria-label="Octave up">+</button>
+    </div>
+    <label class="kbsize">Keys
+      <select id="selKeys" aria-label="Number of keys on your MIDI keyboard">
+        <option value="25">25</option><option value="37">37</option><option value="49">49</option>
+        <option value="61">61</option><option value="76">76</option><option value="88">88</option>
+      </select>
+    </label>
+  </div>
+  <div class="kbwrap" id="kbwrap"><div class="kbfelt"></div><div class="kbrange" id="kbrange" hidden></div></div>
   <div class="kbhint">
     <span id="lastNote">—</span>
     <span id="pedalState">pedal up</span>
-    <span id="voiceCount">0 voices</span>
   </div>
 </footer>
 
@@ -302,10 +324,10 @@ function bindInputs(){
   MIDI.names=names;
   if(names.length){
     midiStatus(names.join(" + "), "ok");
-    const g=$("#gateMidi"); if(g) g.textContent="✓ "+names.join(", ")+" detected — you're connected.";
+    const g=$("#gateMidi"); if(g) g.textContent="✓ "+names.join(", ")+" connected";
   } else {
-    midiStatus("no device — plug in anytime, it'll appear automatically", "warn");
-    const g=$("#gateMidi"); if(g) g.textContent="No MIDI keyboard detected yet — plug it in whenever; no refresh needed.";
+    midiStatus("none detected", "warn");
+    const g=$("#gateMidi"); if(g) g.textContent="No MIDI keyboard found — plug one in anytime.";
   }
 }
 async function initMIDI(){
@@ -326,8 +348,8 @@ async function initMIDI(){
 function onMidiMessage(e){
   const d=e.data; if(!d||d.length<1) return;
   const cmd=d[0]&0xf0;
-  if(cmd===0x90 && d[2]>0)               noteOn(d[1], d[2], "midi");
-  else if(cmd===0x80 || (cmd===0x90 && d[2]===0)) noteOff(d[1]);
+  if(cmd===0x90 && d[2]>0){              followRange(d[1]); pressShifted("m"+d[1], d[1], d[2], "midi"); }
+  else if(cmd===0x80 || (cmd===0x90 && d[2]===0)) releaseShifted("m"+d[1]);
   else if(cmd===0xB0){
     if(d[1]===64) setSustain(d[2]>=64);
     else if(d[1]===66) setSustain(d[2]>=64);          // sostenuto → treat as sustain
@@ -336,7 +358,7 @@ function onMidiMessage(e){
 }
 
 /* ---------------- audio graph ---------------- */
-const A={ctx:null, ready:false, buffers:new Map(), sampleMidis:[],
+const A={ctx:null, ready:false, layers:[], sampleMidis:[],
          bus:null, f1:null, f2:null, f3:null,
          dry:null, wet:null, conv:null, master:null, comp:null};
 const VOICES=new Map();          // midi -> array of live voices
@@ -344,11 +366,11 @@ let SUSTAIN=false, deferred=new Set(), voiceN=0;
 
 const VOICINGS={
   yamaha:     {f1:["lowshelf",150,-1], f2:["peaking",4000,1,.9], f3:["highshelf",6000,2.5],
-               lpBase:1900, lpMax:18000, velExp:1.7, gain:1.0},
+               lpMax:18000, velExp:1.7, gain:1.0},
   steinway:   {f1:["lowshelf",180,1.5], f2:["peaking",2500,-1.5,1], f3:["highshelf",7000,-2],
-               lpBase:1500, lpMax:15000, velExp:1.55, gain:1.05},
+               lpMax:15000, velExp:1.55, gain:1.05},
   bosendorfer:{f1:["lowshelf",150,3],  f2:["peaking",3000,-2,1],  f3:["highshelf",7500,-3.5],
-               lpBase:1250, lpMax:13000, velExp:1.45, gain:1.1},
+               lpMax:13000, velExp:1.45, gain:1.1},
 };
 let voicing="yamaha";
 const CURVES={soft:.75, natural:1, hard:1.35};
@@ -377,110 +399,245 @@ function applyVoicing(){
   set(A.f1,v.f1); set(A.f2,v.f2); set(A.f3,v.f3);
 }
 
-/* ---------------- reverb: synthesized IRs ---------------- */
+/* ---------------- reverb: synthesized IRs ----------------
+   Four spaces chosen to sound genuinely different, not one tail stretched.
+   Each IR = early reflections (the room's size/shape) + a late tail whose
+   highs die faster than its lows (hfRatio), with an onset "build" that
+   ranges from instant (studio) to a slow swell (bloom).
+     rt      RT60 of the low band, seconds      hfRatio  high-band RT60 / rt
+     pre     pre-delay before anything          er       [count, spread s, level]
+     build   tail fade-in time constant         air      final high-cut Hz
+     lc      low-cut Hz                         wid      stereo decorrelation 0–1
+   -------------------------------------------------------------- */
 const VERBS=[
-  {id:"dry",   name:"Dry — no space"},
-  {id:"room",  name:"Studio Room",     sec:.55, exp:1.6, pre:.005, damp:7500, lc:90,  wid:.6},
-  {id:"chamb", name:"Medium Chamber",  sec:1.1, exp:1.5, pre:.010, damp:6500, lc:90,  wid:.75},
-  {id:"theat", name:"Theatre",         sec:1.5, exp:1.5, pre:.014, damp:5800, lc:80,  wid:.85},
-  {id:"hall",  name:"Concert Hall",    sec:2.3, exp:1.4, pre:.020, damp:5200, lc:70,  wid:1},
-  {id:"cath",  name:"Large Cathedral", sec:4.6, exp:1.3, pre:.032, damp:3800, lc:60,  wid:1},
-  {id:"plate", name:"Vintage Plate",   sec:1.9, exp:1.7, pre:0,    damp:9500, lc:140, wid:.9},
-  {id:"dark",  name:"Dark Hall",       sec:2.8, exp:1.4, pre:.022, damp:2600, lc:70,  wid:1},
-  {id:"synth", name:"Synth Hall",      sec:3.4, exp:1.2, pre:.026, damp:6800, lc:60,  wid:1},
+  {id:"studio", name:"Tight Studio",
+   rt:.45, hfRatio:.7,  pre:.002, er:[14,.018,.55], build:.003, air:11000, lc:110, wid:.55},
+  {id:"room",   name:"Practice Room",
+   rt:.95, hfRatio:.55, pre:.006, er:[10,.045,.75], build:.012, air:7500,  lc:90,  wid:.8},
+  {id:"cath",   name:"Cathedral",
+   rt:5.2, hfRatio:.45, pre:.040, er:[7, .160,.45], build:.090, air:6000,  lc:55,  wid:1},
+  {id:"bloom",  name:"Dark Cathedral — Bloom",
+   rt:8.5, hfRatio:.22, pre:.075, er:[4, .220,.20], build:.650, air:2200,  lc:45,  wid:1},
 ];
-let verbId="hall";
+let verbId="room";
 function makeIR(p){
-  const sr=A.ctx.sampleRate, pre=Math.floor(p.pre*sr), n=pre+Math.floor(p.sec*sr);
+  const sr=A.ctx.sampleRate, pre=Math.floor(p.pre*sr);
+  const n=pre+Math.floor(p.rt*1.1*sr);                  // tail is ~-66 dB by the end
   const buf=A.ctx.createBuffer(2,n,sr);
+  const k=-6.91;                                         // ln(0.001): -60 dB
+  const xo=Math.exp(-2*Math.PI*1200/sr);                 // low/high band crossover
+  const aAir=Math.exp(-2*Math.PI*p.air/sr), aLc=Math.exp(-2*Math.PI*p.lc/sr);
+  const [erN,erSpread,erLvl]=p.er;
   for(let ch=0;ch<2;ch++){
     const d=buf.getChannelData(ch);
-    let lp=0, hp=0;
+    // late tail: two bands with independent decay, faded in by `build`
+    let lo=0;
     for(let i=pre;i<n;i++){
-      const t=(i-pre)/(n-pre);
-      const env=Math.pow(1-t,p.exp)*Math.exp(-3*t);
-      // damping increases over time: cutoff slides down
-      const fc=p.damp*(1-.7*t);
-      const a=Math.exp(-2*Math.PI*fc/sr);
-      const x=(Math.random()*2-1)*env;
-      lp=a*lp+(1-a)*x;                          // progressive high-cut
-      const aHp=Math.exp(-2*Math.PI*p.lc/sr);
-      hp=aHp*hp+(1-aHp)*lp;
-      let s=lp-hp;                              // low-cut keeps the piano's own bass clean
-      // stereo width: blend a touch of shared mono for narrow spaces
-      d[i]=s*(ch?1:.96)*(.5+.5*p.wid) + s*(1-p.wid)*.2;
+      const t=(i-pre)/sr;
+      const x=Math.random()*2-1;
+      lo=xo*lo+(1-xo)*x;
+      const hi=x-lo;
+      const onset=1-Math.exp(-t/p.build);
+      d[i]=(lo*Math.exp(k*t/p.rt)*2.2 + hi*Math.exp(k*t/(p.rt*p.hfRatio)))*onset;
     }
+    // early reflections: sparse taps, different per ear, falling in level
+    for(let j=0;j<erN;j++){
+      const pos=(j+Math.random()*.8)/erN;
+      const i=pre+Math.floor(pos*erSpread*sr);
+      if(i<n) d[i]+=(Math.random()<.5?-1:1)*erLvl*(1-.6*pos)*(ch?1:.9);
+    }
+    // global air absorption + low-cut
+    let a=0, h=0;
+    for(let i=pre;i<n;i++){
+      a=aAir*a+(1-aAir)*d[i];
+      h=aLc*h+(1-aLc)*a;
+      d[i]=a-h;
+    }
+  }
+  // stereo width: pull channels toward their mid for narrower spaces
+  const L=buf.getChannelData(0), R=buf.getChannelData(1), w=p.wid;
+  for(let i=0;i<n;i++){
+    const m=(L[i]+R[i])*.5;
+    L[i]=m+(L[i]-m)*w; R[i]=m+(R[i]-m)*w;
   }
   return buf;
 }
 function applyVerb(){
   const p=VERBS.find(v=>v.id===verbId);
-  if(!p || p.id==="dry"){ A.wet.gain.value=0; return; }
+  if(!p) return;
   A.conv.buffer=makeIR(p);
   applyMix();
 }
 function applyMix(){
   const m=parseInt($("#inMix").value)/100;
-  const isDry=verbId==="dry";
-  A.dry.gain.setTargetAtTime(1-(isDry?0:m*.55), A.ctx.currentTime, .03);
-  A.wet.gain.setTargetAtTime(isDry?0:m*1.15,    A.ctx.currentTime, .03);
+  A.dry.gain.setTargetAtTime(1-m*.55, A.ctx.currentTime, .03);
+  A.wet.gain.setTargetAtTime(m*1.15,  A.ctx.currentTime, .03);
   $("#mixVal").textContent=$("#inMix").value+"%";
 }
 
-/* ---------------- samples ---------------- */
-const SAMPLE_CDN="https://tonejs.github.io/audio/salamander/";
-function sampleList(){
-  const list=[{midi:21,file:"A0.mp3"}];
-  for(let m=24;m<=108;m+=3){
-    const nm=NOTE_NAMES[m%12].replace("#","s")+(Math.floor(m/12)-1);
-    list.push({midi:m,file:nm+".mp3"});
-  }
+/* ---------------- samples: velocity layers ----------------
+   Five of the Salamander grand's 16 recorded dynamics. The layers are
+   not normalized — each carries its real level and brightness — so
+   `db` is the measured average RMS (first 0.3 s of A1, C4, C7) and
+   loudness between layers is interpolated from those numbers.
+   `top` is the highest effective velocity the layer covers.
+
+   Memory: decoded audio is ~155 MB per full layer. Only the core
+   layer (v8) is kept full length; the others keep their first few
+   seconds (where dynamics actually differ) and crossfade into the
+   core layer's tail, level-matched per note.
+   -------------------------------------------------------------- */
+const LAYERS=[
+  {v:1,  top:31,  db:-36.8},
+  {v:4,  top:57,  db:-27.6},
+  {v:8,  top:82,  db:-23.0, core:true},
+  {v:12, top:106, db:-19.1},
+  {v:16, top:127, db:-14.9},
+];
+const CORE=LAYERS.findIndex(l=>l.core);
+const LOAD_ORDER=[CORE,3,1,4,0];           // core first, then outward
+const XFADE=.5;                            // seconds of attack→tail crossfade
+const SAMPLE_CDN=v=>"https://cdn.jsdelivr.net/npm/@audio-samples/piano-mp3-velocity"+v+"@1.0.5/audio/";
+function sampleList(v){
+  const list=[{midi:21,file:"A0v"+v+".mp3"}];
+  for(let m=24;m<=108;m+=3) list.push({midi:m,file:noteName(m)+"v"+v+".mp3"});
   return list;
 }
-async function fetchSample(file){
-  try{ const r=await fetch("audio/"+file); if(r.ok) return r.arrayBuffer(); }catch(e){}
-  const r=await fetch(SAMPLE_CDN+file);
+async function fetchSample(v,file){
+  const f=encodeURIComponent(file);                // "#" in D#4 must be escaped
+  try{ const r=await fetch("audio/"+f); if(r.ok) return r.arrayBuffer(); }catch(e){}
+  const r=await fetch(SAMPLE_CDN(v)+f);
   if(!r.ok) throw new Error(file);
   return r.arrayBuffer();
 }
-async function loadSamples(){
-  const list=sampleList(); let done=0;
-  $("#loadbar").hidden=false;
+function rmsWindow(buf,t0,t1){
+  const sr=buf.sampleRate, i0=Math.max(0,Math.floor(t0*sr)), i1=Math.min(buf.length,Math.floor(t1*sr));
+  let s=0;
+  for(let ch=0;ch<buf.numberOfChannels;ch++){
+    const d=buf.getChannelData(ch); for(let i=i0;i<i1;i++) s+=d[i]*d[i];
+  }
+  return Math.sqrt(s/Math.max(1,(i1-i0)*buf.numberOfChannels));
+}
+// correlation of two samples over [t0,t1]; layers of the same note are
+// often nearly in phase by the tail, which changes the crossfade law
+function corrWindow(a,b,t0,t1){
+  const sr=a.sampleRate, i0=Math.floor(t0*sr), i1=Math.min(a.length,b.length,Math.floor(t1*sr));
+  let s=0,p=0,q=0;
+  for(let ch=0;ch<Math.min(a.numberOfChannels,b.numberOfChannels);ch++){
+    const x=a.getChannelData(ch), y=b.getChannelData(ch);
+    for(let i=i0;i<i1;i++){ s+=x[i]*y[i]; p+=x[i]*x[i]; q+=y[i]*y[i]; }
+  }
+  return p&&q ? s/Math.sqrt(p*q) : 0;
+}
+// keep only the attack of a non-core sample; remember how loud its tail
+// should be relative to the core sample at the crossfade point
+function trimToAttack(buf,midi){
+  const T=midi<48?6:4;                             // loud bass stays brighter longer
+  const core=A.layers[CORE].get(midi).buf;
+  if(buf.duration<=T+.1 || core.duration<=T+.1) return {buf,T:null};
+  const tailGain=clamp(rmsWindow(buf,T-XFADE,T)/Math.max(1e-6,rmsWindow(core,T-XFADE,T)),0,16);
+  const rho=clamp(corrWindow(buf,core,T-XFADE,T),0,1);
+  const n=Math.floor(T*buf.sampleRate);
+  const out=A.ctx.createBuffer(buf.numberOfChannels,n,buf.sampleRate);
+  for(let ch=0;ch<buf.numberOfChannels;ch++) out.copyToChannel(buf.getChannelData(ch).subarray(0,n),ch);
+  return {buf:out,T,tailGain,rho};
+}
+async function loadLayer(li,onProgress){
+  const L=LAYERS[li], list=sampleList(L.v), map=new Map();
+  let done=0;
   await Promise.all(list.map(async s=>{
-    const raw=await fetchSample(s.file);
-    A.buffers.set(s.midi, await A.ctx.decodeAudioData(raw));
-    done++;
-    $("#loadfill").style.width=(done/list.length*100)+"%";
-    $("#loadMsg").textContent="Loading samples… "+done+" / "+list.length;
+    const buf=await A.ctx.decodeAudioData(await fetchSample(L.v,s.file));
+    map.set(s.midi, L.core?{buf,T:null}:trimToAttack(buf,s.midi));
+    done++; if(onProgress) onProgress(done,list.length);
   }));
-  A.sampleMidis=[...A.buffers.keys()].sort((a,b)=>a-b);
+  A.layers[li]=map;
+}
+async function loadSamples(){
+  $("#loadbar").hidden=false;
+  await loadLayer(CORE,(done,total)=>{
+    $("#loadfill").style.width=(done/total*100)+"%";
+    $("#loadMsg").textContent="Loading samples… "+done+" / "+total;
+  });
+  A.sampleMidis=[...A.layers[CORE].keys()].sort((a,b)=>a-b);
+}
+// background: the piano is already playable on the core layer
+async function loadRemainingLayers(){
+  let failed=0;
+  for(const li of LOAD_ORDER.slice(1)){
+    try{ await loadLayer(li); }catch(e){ failed++; }
+    layerStatus(failed);
+  }
+  if(failed) toast("Some velocity layers couldn't load — playing with the rest.");
+}
+function layerStatus(failed){
+  const n=A.layers.filter(Boolean).length;
+  $("#audioStatus").textContent=n<LAYERS.length-failed ? "Audio: loading dynamics "+n+"/"+LAYERS.length : "Audio: ready";
 }
 function nearestSample(m){
   let best=A.sampleMidis[0], bd=1e9;
   for(const s of A.sampleMidis){ const d=Math.abs(s-m); if(d<bd){bd=d;best=s;} }
   return best;
 }
+// the zone's layer if loaded, else the closest loaded one
+function pickLayer(ev){
+  const z=Math.max(0,LAYERS.findIndex(l=>ev<=l.top));
+  for(let d=0;d<LAYERS.length;d++){
+    if(A.layers[z-d]) return z-d;
+    if(A.layers[z+d]) return z+d;
+  }
+  return CORE;
+}
+// continuous loudness curve (dB) through the measured layer levels
+function targetDb(ev){
+  const pts=[[1,LAYERS[0].db-14], ...LAYERS.map(l=>[l.top,l.db])];
+  for(let i=1;i<pts.length;i++){
+    if(ev<=pts[i][0]){
+      const [x0,y0]=pts[i-1], [x1,y1]=pts[i];
+      return y0+(y1-y0)*(ev-x0)/(x1-x0);
+    }
+  }
+  return LAYERS[LAYERS.length-1].db;
+}
 
 /* ---------------- voices ---------------- */
 function noteOn(midi, vel, src){
   midi=clamp(midi,0,127);
   keyLight(midi,true);
-  $("#lastNote").textContent=noteName(midi)+" · vel "+vel+(src==="midi"?" · MIDI":"");
+  $("#lastNote").textContent=noteName(midi)+" · vel "+vel;
   if(!A.ready) return;                          // pre-start: visual only
   if(midi<21||midi>108) return;
   // re-strike: damp prior voices of this note quickly
   (VOICES.get(midi)||[]).forEach(v=>v.release(.03));
   const v=VOICINGS[voicing], t=A.ctx.currentTime;
-  const vn=Math.pow(clamp(vel,1,127)/127, 1);
-  const g=Math.pow(vn, v.velExp*CURVES[curve])*v.gain*.9+.02;
-  const sm=nearestSample(midi), buf=A.buffers.get(sm);
-  const srcN=A.ctx.createBufferSource(); srcN.buffer=buf;
-  srcN.playbackRate.value=Math.pow(2,(midi-sm)/12);
+  // touch curve + voicing reshape velocity, then pick the recorded layer
+  const ev=clamp(127*Math.pow(clamp(vel,1,127)/127, CURVES[curve]*v.velExp/1.55),1,127);
+  const li=pickLayer(ev), L=LAYERS[li];
+  const g=Math.pow(10,(targetDb(ev)-L.db)/20)*v.gain*.9;
+  const sm=nearestSample(midi), entry=A.layers[li].get(sm), rate=Math.pow(2,(midi-sm)/12);
   const lp=A.ctx.createBiquadFilter(); lp.type="lowpass"; lp.Q.value=.2;
-  lp.frequency.value=v.lpBase+(v.lpMax-v.lpBase)*Math.pow(vn,1.3);
+  lp.frequency.value=v.lpMax*Math.pow(2,-1.3*(1-ev/127));   // voicing tilt; layers carry the real timbre
   const gn=A.ctx.createGain();
   gn.gain.setValueAtTime(0,t); gn.gain.linearRampToValueAtTime(g,t+.002);
-  srcN.connect(lp); lp.connect(gn); gn.connect(A.bus);
+  lp.connect(gn); gn.connect(A.bus);
+  const srcN=A.ctx.createBufferSource(); srcN.buffer=entry.buf; srcN.playbackRate.value=rate;
+  let last=srcN;
+  if(entry.T){
+    // attack from this layer, crossfade into the core layer's tail. Fades are
+    // normalized by the measured correlation so the sum stays level:
+    // uncorrelated → equal-power, in-phase → equal-gain.
+    const xa=A.ctx.createGain(), xb=A.ctx.createGain(), tail=A.ctx.createBufferSource();
+    tail.buffer=A.layers[CORE].get(sm).buf; tail.playbackRate.value=rate;
+    const x0=t+(entry.T-XFADE)/rate, xd=XFADE/rate, N=32, fo=new Float32Array(N), fi=new Float32Array(N);
+    for(let i=0;i<N;i++){
+      const p=i/(N-1), k=1/Math.sqrt((1-p)*(1-p)+p*p+2*entry.rho*p*(1-p));
+      fo[i]=(1-p)*k; fi[i]=p*k*entry.tailGain;
+    }
+    xa.gain.setValueAtTime(1,t); xa.gain.setValueCurveAtTime(fo,x0,xd);
+    xb.gain.setValueAtTime(0,t); xb.gain.setValueCurveAtTime(fi,x0,xd);
+    srcN.connect(xa); xa.connect(lp); tail.connect(xb); xb.connect(lp);
+    tail.start(x0, entry.T-XFADE);
+    last=tail;
+  } else srcN.connect(lp);
   srcN.start(t);
   voiceN++;
   const voice={midi, started:t, dead:false,
@@ -489,28 +646,24 @@ function noteOn(midi, vel, src){
       const at=A.ctx.currentTime;
       tau=tau ?? (.05+.06*(1-midi/108));        // bass dampers settle a touch slower
       gn.gain.setTargetAtTime(0,at,tau);
-      srcN.stop(at+tau*8+.1);
+      srcN.stop(at+tau*8+.1); if(last!==srcN) last.stop(at+tau*8+.1);
       const arr=VOICES.get(midi)||[];
       VOICES.set(midi, arr.filter(x=>x!==voice));
     }};
-  srcN.onended=()=>{ if(!voice.dead){voice.dead=true; voiceN--;} };
+  last.onended=()=>{ if(!voice.dead){voice.dead=true; voiceN--;} };
   const arr=VOICES.get(midi)||[]; arr.push(voice); VOICES.set(midi,arr);
   stealIfNeeded();
-  $("#voiceCount").textContent=voiceN+" voices";
 }
 function noteOff(midi){
   keyLight(midi,false);
   if(!A.ready) return;
   if(SUSTAIN){ deferred.add(midi); return; }
   (VOICES.get(midi)||[]).slice().forEach(v=>v.release());
-  $("#voiceCount").textContent=voiceN+" voices";
 }
 function setSustain(down){
   SUSTAIN=down;
   $("#pedalState").textContent=down?"pedal DOWN":"pedal up";
-  if(!down){ deferred.forEach(m=>{(VOICES.get(m)||[]).slice().forEach(v=>v.release());}); deferred.clear();
-    $("#voiceCount").textContent=voiceN+" voices";
-  }
+  if(!down){ deferred.forEach(m=>{(VOICES.get(m)||[]).slice().forEach(v=>v.release());}); deferred.clear(); }
 }
 function stealIfNeeded(){
   if(voiceN<=72) return;
@@ -521,7 +674,7 @@ function stealIfNeeded(){
 }
 function panic(){
   for(const arr of VOICES.values()) arr.slice().forEach(v=>v.release(.02));
-  deferred.clear(); SUSTAIN=false;
+  deferred.clear(); SUSTAIN=false; SHIFTED.clear();
   $("#pedalState").textContent="pedal up";
   document.querySelectorAll(".key.on").forEach(k=>k.classList.remove("on"));
 }
@@ -560,23 +713,83 @@ function keyLight(midi,on){
   const k=keyEls.get(midi); if(k) k.classList.toggle("on",on);
 }
 
+/* ---------------- octave shift ----------------
+   One shift for MIDI input and typing keys (the on-screen keyboard
+   already spans all 88). Each press remembers the note it actually
+   sounded, so shifting while a key is held never strands a note. */
+let octShift=0;
+const OCT_MIN=-3, OCT_MAX=3, TYPE_BASE=60;
+const SHIFTED=new Map();          // input id ("m60", "kKeyA") -> sounding midi
+function pressShifted(id, inNote, vel, src){
+  const m=inNote+12*octShift;
+  SHIFTED.set(id,m); noteOn(m,vel,src);
+}
+function releaseShifted(id){
+  if(!SHIFTED.has(id)) return;
+  const m=SHIFTED.get(id); SHIFTED.delete(id); noteOff(m);
+}
+function setOctave(n){
+  octShift=clamp(n,OCT_MIN,OCT_MAX);
+  const o=$("#octVal");
+  o.textContent="Octave "+(octShift>0?"+":"")+octShift;
+  o.classList.toggle("shifted",octShift!==0);
+  $("#octDown").disabled=octShift<=OCT_MIN;
+  $("#octUp").disabled=octShift>=OCT_MAX;
+  drawRange();
+}
+$("#octDown").onclick=()=>setOctave(octShift-1);
+$("#octUp").onclick=()=>setOctave(octShift+1);
+
+/* ---------------- controller range ----------------
+   The browser can't tell how many keys a controller has, so the player
+   picks a size and we assume its standard range. If a note arrives
+   outside it (the controller's own octave buttons), the range slides
+   by octaves to follow. The highlight shows the range after our shift. */
+const KB_LOW={25:48, 37:48, 49:36, 61:36, 76:28, 88:21};
+let kbSize=61, kbLo=KB_LOW[61];
+try{ const v=+localStorage.getItem("grand.keys"); if(KB_LOW[v]){ kbSize=v; kbLo=KB_LOW[v]; } }catch(e){}
+function followRange(n){
+  if(kbSize===88) return;
+  const hi=kbLo+kbSize-1;
+  if(n<kbLo)      kbLo-=12*Math.ceil((kbLo-n)/12);
+  else if(n>hi)   kbLo+=12*Math.ceil((n-hi)/12);
+  else return;
+  drawRange();
+}
+function drawRange(){
+  const band=$("#kbrange");
+  const lo=Math.max(21,kbLo+12*octShift), hi=Math.min(108,kbLo+kbSize-1+12*octShift);
+  const full=kbSize===88 || lo>hi;
+  keyEls.forEach((k,m)=>k.classList.toggle("out",!full && (m<lo||m>hi)));
+  band.hidden=full;
+  if(full) return;
+  const a=keyEls.get(lo), b=keyEls.get(hi);
+  const left=parseFloat(a.style.left), right=parseFloat(b.style.left)+parseFloat(b.style.width);
+  band.style.left=left+"%"; band.style.width=(right-left)+"%";
+}
+$("#selKeys").value=String(kbSize);
+$("#selKeys").onchange=e=>{
+  kbSize=+e.target.value; kbLo=KB_LOW[kbSize];
+  try{ localStorage.setItem("grand.keys",kbSize); }catch(err){}
+  drawRange();
+};
+
 /* ---------------- typing keys ---------------- */
 const CODEMAP={KeyA:0,KeyW:1,KeyS:2,KeyE:3,KeyD:4,KeyF:5,KeyT:6,KeyG:7,KeyY:8,KeyH:9,KeyU:10,KeyJ:11,KeyK:12,KeyO:13,KeyL:14,KeyP:15,Semicolon:16};
-let octBase=60, heldCodes=new Set();
 window.addEventListener("keydown",e=>{
   if(e.repeat) return;
   const tag=e.target.tagName; if(tag==="INPUT"||tag==="SELECT"||tag==="TEXTAREA") return;
   if(e.code==="ShiftLeft"||e.code==="ShiftRight"){ setSustain(true); return; }
   if(e.code==="Escape"){ panic(); return; }
-  if(e.code==="KeyZ"){ octBase=Math.max(24,octBase-12); toast("Octave: "+noteName(octBase)); return; }
-  if(e.code==="KeyX"){ octBase=Math.min(96,octBase+12); toast("Octave: "+noteName(octBase)); return; }
-  if(CODEMAP[e.code]!==undefined && !heldCodes.has(e.code)){
-    heldCodes.add(e.code); noteOn(octBase+CODEMAP[e.code],92,"typing");
+  if(e.code==="KeyZ"){ setOctave(octShift-1); toast("Octave "+(octShift>0?"+":"")+octShift); return; }
+  if(e.code==="KeyX"){ setOctave(octShift+1); toast("Octave "+(octShift>0?"+":"")+octShift); return; }
+  if(CODEMAP[e.code]!==undefined && !SHIFTED.has("k"+e.code)){
+    pressShifted("k"+e.code, TYPE_BASE+CODEMAP[e.code], 92, "typing");
   }
 });
 window.addEventListener("keyup",e=>{
   if(e.code==="ShiftLeft"||e.code==="ShiftRight"){ setSustain(false); return; }
-  if(CODEMAP[e.code]!==undefined){ heldCodes.delete(e.code); noteOff(octBase+CODEMAP[e.code]); }
+  if(CODEMAP[e.code]!==undefined) releaseShifted("k"+e.code);
 });
 
 /* ---------------- UI wiring ---------------- */
@@ -616,19 +829,15 @@ $("#btnStart").onclick=async ()=>{
     A.ready=true;
     buildRecorderTap();
     $("#btnRec").disabled=false;
-    $("#recStatus").textContent="Ready to record.";
     $("#gate").style.display="none";
     $("#console").style.display="flex";
-    $("#audioStatus").textContent="Audio: running · "+Math.round(A.ctx.sampleRate/1000)+" kHz";
     $("#audioDot").classList.add("ok");
-    setInterval(()=>{
-      const ms=((A.ctx.baseLatency||0)+(A.ctx.outputLatency||0))*1000;
-      if(ms) $("#latency").textContent="output ≈ "+ms.toFixed(0)+" ms";
-    },1000);
     toast("Ready — play.");
+    layerStatus(0);
+    loadRemainingLayers();
   }catch(e){
     btn.disabled=false; btn.textContent="Start the piano";
-    $("#loadMsg").textContent="Couldn't load samples. Check your connection (or place them in an audio/ folder beside this file) and try again.";
+    $("#loadMsg").textContent="Couldn't load samples. Check your connection and try again.";
   }
 };
 
@@ -743,6 +952,7 @@ $("#btnRec").onclick=()=>{ REC.active?stopRec():startRec(); };
   $("#gate").insertBefore(p, $("#btnStart"));
 })();
 buildKeyboard();
+setOctave(0);
 initMIDI();
 
 </script>
