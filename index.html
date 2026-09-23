@@ -188,7 +188,7 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
   <!-- start gate: browsers require a click before audio -->
   <div class="stagecard" id="gate">
     <h1>Take the bench.</h1>
-    <p>Plug in your MIDI keyboard, then start the piano. Samples load once (~14&nbsp;MB) and your browser caches them. Sustain pedal supported.</p>
+    <p>Plug in your MIDI keyboard, then start the piano. About 5&nbsp;MB loads before you can play; four more velocity layers (~22&nbsp;MB) follow in the background. Your browser caches them. Sustain pedal supported.</p>
     <button id="btnStart">Start the piano</button>
     <div class="loadbar" hidden id="loadbar"><i id="loadfill"></i></div>
     <div id="loadMsg"></div>
@@ -258,7 +258,8 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
     <div class="stagecard note">
       <b>Work-computer notes:</b> runs from this single file in Edge or Chrome — no install, no admin.
       Needs internet on first load for samples; afterward they're cached. For a fully offline copy,
-      put the sample files in an <b>audio/</b> folder next to this file — it checks there first.
+      put the sample files (e.g. <b>C4v8.mp3</b>, from the <b>@audio-samples/piano-mp3-velocity1/4/8/12/16</b> packages)
+      in an <b>audio/</b> folder next to this file — it checks there first.
       Typing keys work too: <kbd>A</kbd>–<kbd>K</kbd> with <kbd>W</kbd><kbd>E</kbd><kbd>T</kbd><kbd>Y</kbd><kbd>U</kbd> sharps, <kbd>Z</kbd>/<kbd>X</kbd> octave (also shifts your MIDI keyboard), <kbd>Shift</kbd> sustain.
     </div>
   </div>
@@ -350,7 +351,7 @@ function onMidiMessage(e){
 }
 
 /* ---------------- audio graph ---------------- */
-const A={ctx:null, ready:false, buffers:new Map(), sampleMidis:[],
+const A={ctx:null, ready:false, layers:[], sampleMidis:[],
          bus:null, f1:null, f2:null, f3:null,
          dry:null, wet:null, conv:null, master:null, comp:null};
 const VOICES=new Map();          // midi -> array of live voices
@@ -358,11 +359,11 @@ let SUSTAIN=false, deferred=new Set(), voiceN=0;
 
 const VOICINGS={
   yamaha:     {f1:["lowshelf",150,-1], f2:["peaking",4000,1,.9], f3:["highshelf",6000,2.5],
-               lpBase:1900, lpMax:18000, velExp:1.7, gain:1.0},
+               lpMax:18000, velExp:1.7, gain:1.0},
   steinway:   {f1:["lowshelf",180,1.5], f2:["peaking",2500,-1.5,1], f3:["highshelf",7000,-2],
-               lpBase:1500, lpMax:15000, velExp:1.55, gain:1.05},
+               lpMax:15000, velExp:1.55, gain:1.05},
   bosendorfer:{f1:["lowshelf",150,3],  f2:["peaking",3000,-2,1],  f3:["highshelf",7500,-3.5],
-               lpBase:1250, lpMax:13000, velExp:1.45, gain:1.1},
+               lpMax:13000, velExp:1.45, gain:1.1},
 };
 let voicing="yamaha";
 const CURVES={soft:.75, natural:1, hard:1.35};
@@ -467,38 +468,129 @@ function applyMix(){
   $("#mixVal").textContent=$("#inMix").value+"%";
 }
 
-/* ---------------- samples ---------------- */
-const SAMPLE_CDN="https://tonejs.github.io/audio/salamander/";
-function sampleList(){
-  const list=[{midi:21,file:"A0.mp3"}];
-  for(let m=24;m<=108;m+=3){
-    const nm=NOTE_NAMES[m%12].replace("#","s")+(Math.floor(m/12)-1);
-    list.push({midi:m,file:nm+".mp3"});
-  }
+/* ---------------- samples: velocity layers ----------------
+   Five of the Salamander grand's 16 recorded dynamics. The layers are
+   not normalized — each carries its real level and brightness — so
+   `db` is the measured average RMS (first 0.3 s of A1, C4, C7) and
+   loudness between layers is interpolated from those numbers.
+   `top` is the highest effective velocity the layer covers.
+
+   Memory: decoded audio is ~155 MB per full layer. Only the core
+   layer (v8) is kept full length; the others keep their first few
+   seconds (where dynamics actually differ) and crossfade into the
+   core layer's tail, level-matched per note.
+   -------------------------------------------------------------- */
+const LAYERS=[
+  {v:1,  top:31,  db:-36.8},
+  {v:4,  top:57,  db:-27.6},
+  {v:8,  top:82,  db:-23.0, core:true},
+  {v:12, top:106, db:-19.1},
+  {v:16, top:127, db:-14.9},
+];
+const CORE=LAYERS.findIndex(l=>l.core);
+const LOAD_ORDER=[CORE,3,1,4,0];           // core first, then outward
+const XFADE=.5;                            // seconds of attack→tail crossfade
+const SAMPLE_CDN=v=>"https://cdn.jsdelivr.net/npm/@audio-samples/piano-mp3-velocity"+v+"@1.0.5/audio/";
+function sampleList(v){
+  const list=[{midi:21,file:"A0v"+v+".mp3"}];
+  for(let m=24;m<=108;m+=3) list.push({midi:m,file:noteName(m)+"v"+v+".mp3"});
   return list;
 }
-async function fetchSample(file){
-  try{ const r=await fetch("audio/"+file); if(r.ok) return r.arrayBuffer(); }catch(e){}
-  const r=await fetch(SAMPLE_CDN+file);
+async function fetchSample(v,file){
+  const f=encodeURIComponent(file);                // "#" in D#4 must be escaped
+  try{ const r=await fetch("audio/"+f); if(r.ok) return r.arrayBuffer(); }catch(e){}
+  const r=await fetch(SAMPLE_CDN(v)+f);
   if(!r.ok) throw new Error(file);
   return r.arrayBuffer();
 }
-async function loadSamples(){
-  const list=sampleList(); let done=0;
-  $("#loadbar").hidden=false;
+function rmsWindow(buf,t0,t1){
+  const sr=buf.sampleRate, i0=Math.max(0,Math.floor(t0*sr)), i1=Math.min(buf.length,Math.floor(t1*sr));
+  let s=0;
+  for(let ch=0;ch<buf.numberOfChannels;ch++){
+    const d=buf.getChannelData(ch); for(let i=i0;i<i1;i++) s+=d[i]*d[i];
+  }
+  return Math.sqrt(s/Math.max(1,(i1-i0)*buf.numberOfChannels));
+}
+// correlation of two samples over [t0,t1]; layers of the same note are
+// often nearly in phase by the tail, which changes the crossfade law
+function corrWindow(a,b,t0,t1){
+  const sr=a.sampleRate, i0=Math.floor(t0*sr), i1=Math.min(a.length,b.length,Math.floor(t1*sr));
+  let s=0,p=0,q=0;
+  for(let ch=0;ch<Math.min(a.numberOfChannels,b.numberOfChannels);ch++){
+    const x=a.getChannelData(ch), y=b.getChannelData(ch);
+    for(let i=i0;i<i1;i++){ s+=x[i]*y[i]; p+=x[i]*x[i]; q+=y[i]*y[i]; }
+  }
+  return p&&q ? s/Math.sqrt(p*q) : 0;
+}
+// keep only the attack of a non-core sample; remember how loud its tail
+// should be relative to the core sample at the crossfade point
+function trimToAttack(buf,midi){
+  const T=midi<48?6:4;                             // loud bass stays brighter longer
+  const core=A.layers[CORE].get(midi).buf;
+  if(buf.duration<=T+.1 || core.duration<=T+.1) return {buf,T:null};
+  const tailGain=clamp(rmsWindow(buf,T-XFADE,T)/Math.max(1e-6,rmsWindow(core,T-XFADE,T)),0,16);
+  const rho=clamp(corrWindow(buf,core,T-XFADE,T),0,1);
+  const n=Math.floor(T*buf.sampleRate);
+  const out=A.ctx.createBuffer(buf.numberOfChannels,n,buf.sampleRate);
+  for(let ch=0;ch<buf.numberOfChannels;ch++) out.copyToChannel(buf.getChannelData(ch).subarray(0,n),ch);
+  return {buf:out,T,tailGain,rho};
+}
+async function loadLayer(li,onProgress){
+  const L=LAYERS[li], list=sampleList(L.v), map=new Map();
+  let done=0;
   await Promise.all(list.map(async s=>{
-    const raw=await fetchSample(s.file);
-    A.buffers.set(s.midi, await A.ctx.decodeAudioData(raw));
-    done++;
-    $("#loadfill").style.width=(done/list.length*100)+"%";
-    $("#loadMsg").textContent="Loading samples… "+done+" / "+list.length;
+    const buf=await A.ctx.decodeAudioData(await fetchSample(L.v,s.file));
+    map.set(s.midi, L.core?{buf,T:null}:trimToAttack(buf,s.midi));
+    done++; if(onProgress) onProgress(done,list.length);
   }));
-  A.sampleMidis=[...A.buffers.keys()].sort((a,b)=>a-b);
+  A.layers[li]=map;
+}
+async function loadSamples(){
+  $("#loadbar").hidden=false;
+  await loadLayer(CORE,(done,total)=>{
+    $("#loadfill").style.width=(done/total*100)+"%";
+    $("#loadMsg").textContent="Loading samples… "+done+" / "+total;
+  });
+  A.sampleMidis=[...A.layers[CORE].keys()].sort((a,b)=>a-b);
+}
+// background: the piano is already playable on the core layer
+async function loadRemainingLayers(){
+  let failed=0;
+  for(const li of LOAD_ORDER.slice(1)){
+    try{ await loadLayer(li); }catch(e){ failed++; }
+    layerStatus(failed);
+  }
+  if(failed) toast("Some velocity layers couldn't load — playing with the rest.");
+}
+function layerStatus(failed){
+  const n=A.layers.filter(Boolean).length;
+  $("#audioStatus").textContent="Audio: running · "+Math.round(A.ctx.sampleRate/1000)+" kHz · "
+    +n+"/"+LAYERS.length+" velocity layers"+(failed?" ("+failed+" failed)":"");
 }
 function nearestSample(m){
   let best=A.sampleMidis[0], bd=1e9;
   for(const s of A.sampleMidis){ const d=Math.abs(s-m); if(d<bd){bd=d;best=s;} }
   return best;
+}
+// the zone's layer if loaded, else the closest loaded one
+function pickLayer(ev){
+  const z=Math.max(0,LAYERS.findIndex(l=>ev<=l.top));
+  for(let d=0;d<LAYERS.length;d++){
+    if(A.layers[z-d]) return z-d;
+    if(A.layers[z+d]) return z+d;
+  }
+  return CORE;
+}
+// continuous loudness curve (dB) through the measured layer levels
+function targetDb(ev){
+  const pts=[[1,LAYERS[0].db-14], ...LAYERS.map(l=>[l.top,l.db])];
+  for(let i=1;i<pts.length;i++){
+    if(ev<=pts[i][0]){
+      const [x0,y0]=pts[i-1], [x1,y1]=pts[i];
+      return y0+(y1-y0)*(ev-x0)/(x1-x0);
+    }
+  }
+  return LAYERS[LAYERS.length-1].db;
 }
 
 /* ---------------- voices ---------------- */
@@ -511,17 +603,37 @@ function noteOn(midi, vel, src){
   // re-strike: damp prior voices of this note quickly
   (VOICES.get(midi)||[]).forEach(v=>v.release(.03));
   const v=VOICINGS[voicing], t=A.ctx.currentTime;
-  const vn=Math.pow(clamp(vel,1,127)/127, 1);
-  const g=Math.pow(vn, v.velExp*CURVES[curve])*v.gain*.9+.02;
-  const sm=nearestSample(midi), buf=A.buffers.get(sm);
-  const srcN=A.ctx.createBufferSource(); srcN.buffer=buf;
-  srcN.playbackRate.value=Math.pow(2,(midi-sm)/12);
+  // touch curve + voicing reshape velocity, then pick the recorded layer
+  const ev=clamp(127*Math.pow(clamp(vel,1,127)/127, CURVES[curve]*v.velExp/1.55),1,127);
+  const li=pickLayer(ev), L=LAYERS[li];
+  const g=Math.pow(10,(targetDb(ev)-L.db)/20)*v.gain*.9;
+  const sm=nearestSample(midi), entry=A.layers[li].get(sm), rate=Math.pow(2,(midi-sm)/12);
   const lp=A.ctx.createBiquadFilter(); lp.type="lowpass"; lp.Q.value=.2;
-  lp.frequency.value=v.lpBase+(v.lpMax-v.lpBase)*Math.pow(vn,1.3);
+  lp.frequency.value=v.lpMax*Math.pow(2,-1.3*(1-ev/127));   // voicing tilt; layers carry the real timbre
   const gn=A.ctx.createGain();
   gn.gain.setValueAtTime(0,t); gn.gain.linearRampToValueAtTime(g,t+.002);
-  srcN.connect(lp); lp.connect(gn); gn.connect(A.bus);
+  lp.connect(gn); gn.connect(A.bus);
+  const srcN=A.ctx.createBufferSource(); srcN.buffer=entry.buf; srcN.playbackRate.value=rate;
+  let last=srcN;
+  if(entry.T){
+    // attack from this layer, crossfade into the core layer's tail. Fades are
+    // normalized by the measured correlation so the sum stays level:
+    // uncorrelated → equal-power, in-phase → equal-gain.
+    const xa=A.ctx.createGain(), xb=A.ctx.createGain(), tail=A.ctx.createBufferSource();
+    tail.buffer=A.layers[CORE].get(sm).buf; tail.playbackRate.value=rate;
+    const x0=t+(entry.T-XFADE)/rate, xd=XFADE/rate, N=32, fo=new Float32Array(N), fi=new Float32Array(N);
+    for(let i=0;i<N;i++){
+      const p=i/(N-1), k=1/Math.sqrt((1-p)*(1-p)+p*p+2*entry.rho*p*(1-p));
+      fo[i]=(1-p)*k; fi[i]=p*k*entry.tailGain;
+    }
+    xa.gain.setValueAtTime(1,t); xa.gain.setValueCurveAtTime(fo,x0,xd);
+    xb.gain.setValueAtTime(0,t); xb.gain.setValueCurveAtTime(fi,x0,xd);
+    srcN.connect(xa); xa.connect(lp); tail.connect(xb); xb.connect(lp);
+    tail.start(x0, entry.T-XFADE);
+    last=tail;
+  } else srcN.connect(lp);
   srcN.start(t);
+  $("#lastNote").textContent=noteName(midi)+" · vel "+vel+" · layer v"+L.v+(src==="midi"?" · MIDI":"");
   voiceN++;
   const voice={midi, started:t, dead:false,
     release(tau){
@@ -529,11 +641,11 @@ function noteOn(midi, vel, src){
       const at=A.ctx.currentTime;
       tau=tau ?? (.05+.06*(1-midi/108));        // bass dampers settle a touch slower
       gn.gain.setTargetAtTime(0,at,tau);
-      srcN.stop(at+tau*8+.1);
+      srcN.stop(at+tau*8+.1); if(last!==srcN) last.stop(at+tau*8+.1);
       const arr=VOICES.get(midi)||[];
       VOICES.set(midi, arr.filter(x=>x!==voice));
     }};
-  srcN.onended=()=>{ if(!voice.dead){voice.dead=true; voiceN--;} };
+  last.onended=()=>{ if(!voice.dead){voice.dead=true; voiceN--;} };
   const arr=VOICES.get(midi)||[]; arr.push(voice); VOICES.set(midi,arr);
   stealIfNeeded();
   $("#voiceCount").textContent=voiceN+" voices";
@@ -691,6 +803,8 @@ $("#btnStart").onclick=async ()=>{
       if(ms) $("#latency").textContent="output ≈ "+ms.toFixed(0)+" ms";
     },1000);
     toast("Ready — play.");
+    layerStatus(0);
+    loadRemainingLayers();
   }catch(e){
     btn.disabled=false; btn.textContent="Start the piano";
     $("#loadMsg").textContent="Couldn't load samples. Check your connection (or place them in an audio/ folder beside this file) and try again.";
