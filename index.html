@@ -121,14 +121,16 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
 .key.b.on{background:linear-gradient(180deg,#caa05a,var(--amber-dn))}
 .key:active{filter:brightness(.92)}
 .kbhint{display:flex;justify-content:center;align-items:center;gap:1.4rem;margin-top:.55rem;font-size:.66rem;color:var(--faint)}
-.oct{display:flex;align-items:center;gap:.35rem;margin-right:auto}
-.oct button{width:30px;height:26px;border:1px solid var(--line);border-radius:6px;background:var(--well);
-  color:var(--dim);font-size:.9rem;line-height:1}
+.kbtop{display:flex;justify-content:center;margin-bottom:.85rem}
+.oct{display:flex;align-items:center;gap:.5rem;padding:.3rem;
+  background:var(--well);border:1px solid var(--line);border-radius:999px}
+.oct button{width:40px;height:34px;border:1px solid var(--line);border-radius:999px;background:var(--raised);
+  color:var(--text);font-size:1.15rem;line-height:1}
 .oct button:hover:not(:disabled){border-color:var(--amber);color:var(--text)}
 .oct button:disabled{opacity:.35;cursor:not-allowed}
-.oct output{min-width:64px;text-align:center;font-variant-numeric:tabular-nums;color:var(--dim)}
+.oct output{min-width:96px;text-align:center;font-variant-numeric:tabular-nums;color:var(--dim);
+  font-size:.78rem;letter-spacing:.12em;text-transform:uppercase}
 .oct output.shifted{color:var(--amber)}
-.kbhint .spacer{margin-left:auto}
 @media (prefers-reduced-motion:reduce){ .piano{transition:none} }
 
 
@@ -256,16 +258,17 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
 </main>
 
 <footer>
-  <div class="kbwrap" id="kbwrap"><div class="kbfelt"></div></div>
-  <div class="kbhint">
+  <div class="kbtop">
     <div class="oct" role="group" aria-label="Octave shift for MIDI and typing keys">
       <button id="octDown" aria-label="Octave down">−</button>
       <output id="octVal" aria-live="polite">Octave 0</output>
       <button id="octUp" aria-label="Octave up">+</button>
     </div>
+  </div>
+  <div class="kbwrap" id="kbwrap"><div class="kbfelt"></div></div>
+  <div class="kbhint">
     <span id="lastNote">—</span>
     <span id="pedalState">pedal up</span>
-    <span class="spacer"></span>
   </div>
 </footer>
 
