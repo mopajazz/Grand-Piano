@@ -49,8 +49,6 @@ header{
 .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:0 0 auto}
 .dot.ok{background:var(--green);box-shadow:0 0 8px rgba(98,201,138,.6)}
 .dot.warn{background:var(--amber)}
-.spacer{flex:1}
-.lat{font-size:.7rem;color:var(--faint);font-variant-numeric:tabular-nums}
 
 /* ---------- stage ---------- */
 main{overflow:auto;padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:1.3rem;align-items:center}
@@ -83,7 +81,7 @@ main{overflow:auto;padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:
 .piano{
   text-align:left;padding:1rem 1.1rem;border:1px solid var(--line);border-radius:14px;
   background:linear-gradient(180deg,#1e1a21,#171419);transition:border-color .15s, transform .15s;
-  display:flex;flex-direction:column;gap:.3rem;min-height:96px;
+  display:flex;flex-direction:column;gap:.3rem;
 }
 .piano:hover{border-color:#4a434f}
 .piano[aria-pressed="true"]{
@@ -92,7 +90,6 @@ main{overflow:auto;padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:
   transform:translateY(-2px);
 }
 .piano b{font-size:.98rem;letter-spacing:.02em}
-.piano small{color:var(--dim);font-size:.72rem;line-height:1.45}
 .piano .tag{align-self:flex-start;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;
   color:var(--amber);border:1px solid rgba(232,166,74,.35);border-radius:999px;padding:.1rem .5rem;margin-bottom:.2rem}
 
@@ -129,7 +126,7 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
   color:var(--dim);font-size:.9rem;line-height:1}
 .oct button:hover:not(:disabled){border-color:var(--amber);color:var(--text)}
 .oct button:disabled{opacity:.35;cursor:not-allowed}
-.oct output{min-width:118px;text-align:center;font-variant-numeric:tabular-nums;color:var(--dim)}
+.oct output{min-width:64px;text-align:center;font-variant-numeric:tabular-nums;color:var(--dim)}
 .oct output.shifted{color:var(--amber)}
 .kbhint .spacer{margin-left:auto}
 @media (prefers-reduced-motion:reduce){ .piano{transition:none} }
@@ -180,15 +177,13 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
   <div class="brand"><b>GRAND</b><span>concert piano</span></div>
   <div class="status"><span class="dot" id="midiDot"></span><span id="midiStatus">MIDI: checking…</span></div>
   <div class="status"><span class="dot" id="audioDot"></span><span id="audioStatus">Audio: not started</span></div>
-  <div class="spacer"></div>
-  <span class="lat" id="latency"></span>
 </header>
 
 <main>
   <!-- start gate: browsers require a click before audio -->
   <div class="stagecard" id="gate">
     <h1>Take the bench.</h1>
-    <p>Plug in your MIDI keyboard, then start the piano. About 5&nbsp;MB loads before you can play; four more velocity layers (~22&nbsp;MB) follow in the background. Your browser caches them. Sustain pedal supported.</p>
+    <p>Plug in your MIDI keyboard and press Start. The first load takes about 15 seconds.</p>
     <button id="btnStart">Start the piano</button>
     <div class="loadbar" hidden id="loadbar"><i id="loadfill"></i></div>
     <div id="loadMsg"></div>
@@ -197,25 +192,22 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
   <!-- console -->
   <div id="console">
     <div class="stagecard">
-      <div class="section-label">Instrument · voicings of the Salamander grand (Yamaha C5, CC-licensed)</div>
+      <div class="section-label">Instrument</div>
       <div class="pianos">
         <button class="piano" data-voicing="steinway" aria-pressed="false">
           <span class="tag">New York</span><b>Steinway-style</b>
-          <small>Warm singing mid-range, rounded top end, generous pedal bloom. The accompanist's choice.</small>
         </button>
         <button class="piano" data-voicing="bosendorfer" aria-pressed="false">
           <span class="tag">Vienna</span><b>Bösendorfer-style</b>
-          <small>Dark, rich bass and a softer attack. Chords sit down into the floor. Ballads live here.</small>
         </button>
         <button class="piano" data-voicing="yamaha" aria-pressed="true">
           <span class="tag">Hamamatsu</span><b>Yamaha CFX-style</b>
-          <small>Bright, clear, and present — cuts through a mix and rewards a light touch.</small>
         </button>
       </div>
     </div>
 
     <div class="stagecard">
-      <div class="section-label">Space · synthesized impulse responses · Mix at 0% for dry</div>
+      <div class="section-label">Space</div>
       <div class="controls">
         <div class="ctl">
           <label for="selVerb">Reverb</label>
@@ -241,13 +233,13 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
     </div>
 
     <div class="stagecard">
-      <div class="section-label">Record · captures the current voicing &amp; space, exports MP3</div>
+      <div class="section-label">Record</div>
       <div class="recrow">
         <button id="btnRec" disabled aria-pressed="false">
           <span class="rdot"></span><span id="recLabel">Record</span>
         </button>
         <span id="recTime">0:00</span>
-        <span id="recStatus">Start the piano to enable recording.</span>
+        <span id="recStatus"></span>
       </div>
       <div id="recPreview">
         <audio id="recAudio" controls></audio>
@@ -256,11 +248,9 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
     </div>
 
     <div class="stagecard note">
-      <b>Work-computer notes:</b> runs from this single file in Edge or Chrome — no install, no admin.
-      Needs internet on first load for samples; afterward they're cached. For a fully offline copy,
-      put the sample files (e.g. <b>C4v8.mp3</b>, from the <b>@audio-samples/piano-mp3-velocity1/4/8/12/16</b> packages)
-      in an <b>audio/</b> folder next to this file — it checks there first.
-      Typing keys work too: <kbd>A</kbd>–<kbd>K</kbd> with <kbd>W</kbd><kbd>E</kbd><kbd>T</kbd><kbd>Y</kbd><kbd>U</kbd> sharps, <kbd>Z</kbd>/<kbd>X</kbd> octave (also shifts your MIDI keyboard), <kbd>Shift</kbd> sustain.
+      No MIDI keyboard? Click the keys, or type: <kbd>A</kbd>–<kbd>K</kbd> white keys, <kbd>W</kbd><kbd>E</kbd><kbd>T</kbd><kbd>Y</kbd><kbd>U</kbd> black keys,
+      <kbd>Z</kbd>/<kbd>X</kbd> octave, <kbd>Shift</kbd> sustain, <kbd>Esc</kbd> stop all notes.
+      <br>Samples: Salamander Grand Piano by Alexander Holm, CC&nbsp;BY&nbsp;3.0.
     </div>
   </div>
 </main>
@@ -275,7 +265,6 @@ footer{border-top:1px solid var(--line);background:#0f0d10;padding:.8rem 1rem 1r
     </div>
     <span id="lastNote">—</span>
     <span id="pedalState">pedal up</span>
-    <span id="voiceCount">0 voices</span>
     <span class="spacer"></span>
   </div>
 </footer>
@@ -317,10 +306,10 @@ function bindInputs(){
   MIDI.names=names;
   if(names.length){
     midiStatus(names.join(" + "), "ok");
-    const g=$("#gateMidi"); if(g) g.textContent="✓ "+names.join(", ")+" detected — you're connected.";
+    const g=$("#gateMidi"); if(g) g.textContent="✓ "+names.join(", ")+" connected";
   } else {
-    midiStatus("no device — plug in anytime, it'll appear automatically", "warn");
-    const g=$("#gateMidi"); if(g) g.textContent="No MIDI keyboard detected yet — plug it in whenever; no refresh needed.";
+    midiStatus("none detected", "warn");
+    const g=$("#gateMidi"); if(g) g.textContent="No MIDI keyboard found — plug one in anytime.";
   }
 }
 async function initMIDI(){
@@ -564,8 +553,7 @@ async function loadRemainingLayers(){
 }
 function layerStatus(failed){
   const n=A.layers.filter(Boolean).length;
-  $("#audioStatus").textContent="Audio: running · "+Math.round(A.ctx.sampleRate/1000)+" kHz · "
-    +n+"/"+LAYERS.length+" velocity layers"+(failed?" ("+failed+" failed)":"");
+  $("#audioStatus").textContent=n<LAYERS.length-failed ? "Audio: loading dynamics "+n+"/"+LAYERS.length : "Audio: ready";
 }
 function nearestSample(m){
   let best=A.sampleMidis[0], bd=1e9;
@@ -597,7 +585,7 @@ function targetDb(ev){
 function noteOn(midi, vel, src){
   midi=clamp(midi,0,127);
   keyLight(midi,true);
-  $("#lastNote").textContent=noteName(midi)+" · vel "+vel+(src==="midi"?" · MIDI":"");
+  $("#lastNote").textContent=noteName(midi)+" · vel "+vel;
   if(!A.ready) return;                          // pre-start: visual only
   if(midi<21||midi>108) return;
   // re-strike: damp prior voices of this note quickly
@@ -633,7 +621,6 @@ function noteOn(midi, vel, src){
     last=tail;
   } else srcN.connect(lp);
   srcN.start(t);
-  $("#lastNote").textContent=noteName(midi)+" · vel "+vel+" · layer v"+L.v+(src==="midi"?" · MIDI":"");
   voiceN++;
   const voice={midi, started:t, dead:false,
     release(tau){
@@ -648,21 +635,17 @@ function noteOn(midi, vel, src){
   last.onended=()=>{ if(!voice.dead){voice.dead=true; voiceN--;} };
   const arr=VOICES.get(midi)||[]; arr.push(voice); VOICES.set(midi,arr);
   stealIfNeeded();
-  $("#voiceCount").textContent=voiceN+" voices";
 }
 function noteOff(midi){
   keyLight(midi,false);
   if(!A.ready) return;
   if(SUSTAIN){ deferred.add(midi); return; }
   (VOICES.get(midi)||[]).slice().forEach(v=>v.release());
-  $("#voiceCount").textContent=voiceN+" voices";
 }
 function setSustain(down){
   SUSTAIN=down;
   $("#pedalState").textContent=down?"pedal DOWN":"pedal up";
-  if(!down){ deferred.forEach(m=>{(VOICES.get(m)||[]).slice().forEach(v=>v.release());}); deferred.clear();
-    $("#voiceCount").textContent=voiceN+" voices";
-  }
+  if(!down){ deferred.forEach(m=>{(VOICES.get(m)||[]).slice().forEach(v=>v.release());}); deferred.clear(); }
 }
 function stealIfNeeded(){
   if(voiceN<=72) return;
@@ -730,7 +713,7 @@ function releaseShifted(id){
 function setOctave(n){
   octShift=clamp(n,OCT_MIN,OCT_MAX);
   const o=$("#octVal");
-  o.textContent="Octave "+(octShift>0?"+":"")+octShift+" · A = "+noteName(TYPE_BASE+12*octShift);
+  o.textContent="Octave "+(octShift>0?"+":"")+octShift;
   o.classList.toggle("shifted",octShift!==0);
   $("#octDown").disabled=octShift<=OCT_MIN;
   $("#octUp").disabled=octShift>=OCT_MAX;
@@ -793,21 +776,15 @@ $("#btnStart").onclick=async ()=>{
     A.ready=true;
     buildRecorderTap();
     $("#btnRec").disabled=false;
-    $("#recStatus").textContent="Ready to record.";
     $("#gate").style.display="none";
     $("#console").style.display="flex";
-    $("#audioStatus").textContent="Audio: running · "+Math.round(A.ctx.sampleRate/1000)+" kHz";
     $("#audioDot").classList.add("ok");
-    setInterval(()=>{
-      const ms=((A.ctx.baseLatency||0)+(A.ctx.outputLatency||0))*1000;
-      if(ms) $("#latency").textContent="output ≈ "+ms.toFixed(0)+" ms";
-    },1000);
     toast("Ready — play.");
     layerStatus(0);
     loadRemainingLayers();
   }catch(e){
     btn.disabled=false; btn.textContent="Start the piano";
-    $("#loadMsg").textContent="Couldn't load samples. Check your connection (or place them in an audio/ folder beside this file) and try again.";
+    $("#loadMsg").textContent="Couldn't load samples. Check your connection and try again.";
   }
 };
 
